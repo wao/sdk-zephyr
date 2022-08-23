@@ -41,7 +41,7 @@
 #define BT_MONITOR_OTHER_DROPS   7
 #define BT_MONITOR_TS32          8
 
-#define BT_MONITOR_BASE_HDR_LEN  6
+#define BT_MONITOR_BASE_HDR_LEN  6+4
 
 #if defined(CONFIG_BT_BREDR)
 #define BT_MONITOR_EXT_HDR_MAX 19
@@ -50,6 +50,7 @@
 #endif
 
 struct bt_monitor_hdr {
+  uint32_t magic;
 	uint16_t  data_len;
 	uint16_t  opcode;
 	uint8_t   flags;

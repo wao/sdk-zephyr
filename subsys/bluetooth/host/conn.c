@@ -164,7 +164,7 @@ static void tx_free(struct bt_conn_tx *tx)
 
 static void tx_notify(struct bt_conn *conn)
 {
-	BT_DBG("conn %p", conn);
+	//BT_DBG("conn %p", conn);
 
 	while (1) {
 		struct bt_conn_tx *tx;
@@ -1086,7 +1086,7 @@ struct bt_conn *bt_conn_ref(struct bt_conn *conn)
 		}
 	} while (!atomic_cas(&conn->ref, old, old + 1));
 
-	BT_DBG("handle %u ref %ld -> %ld", conn->handle, old, old + 1);
+	//BT_DBG("handle %u ref %ld -> %ld", conn->handle, old, old + 1);
 
 	return conn;
 }
@@ -1097,8 +1097,8 @@ void bt_conn_unref(struct bt_conn *conn)
 
 	old = atomic_dec(&conn->ref);
 
-	BT_DBG("handle %u ref %ld -> %ld", conn->handle, old,
-	       atomic_get(&conn->ref));
+	//BT_DBG("handle %u ref %ld -> %ld", conn->handle, old,
+	//       atomic_get(&conn->ref));
 
 	__ASSERT(old > 0, "Conn reference counter is 0");
 
@@ -1314,6 +1314,7 @@ static void notify_disconnected(struct bt_conn *conn)
 
 	STRUCT_SECTION_FOREACH(bt_conn_cb, cb) {
 		if (cb->disconnected) {
+      LOG_ERR("notify disconnected %d", conn->err);
 			cb->disconnected(conn, conn->err);
 		}
 	}
@@ -2597,6 +2598,9 @@ int bt_conn_le_create(const bt_addr_le_t *peer,
 	struct bt_conn *conn;
 	bt_addr_le_t dst;
 	int err;
+
+  LOG_HEXDUMP_ERR(create_param, sizeof(struct bt_conn_le_create_param), "Conn Create Param");
+  LOG_HEXDUMP_ERR(conn_param, sizeof(struct bt_conn_le_create_param), "Conn Param");
 
 	if (!atomic_test_bit(bt_dev.flags, BT_DEV_READY)) {
 		return -EAGAIN;

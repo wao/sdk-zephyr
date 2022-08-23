@@ -1299,6 +1299,8 @@ int bt_iso_cig_create(const struct bt_iso_cig_param *param,
 		return -EINVAL;
 	}
 
+  LOG_HEXDUMP_ERR( param, sizeof(struct bt_iso_cig_param), "Cig Create Param" );
+
 	*out_cig = NULL;
 
 	/* Check if controller is ISO capable as a central */
