@@ -37,6 +37,10 @@
 
 #include "hal/debug.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(lll,LOG_LEVEL_DBG);
+
+
 #if defined(CONFIG_BT_CTLR_ZLI)
 #define IRQ_CONNECT_FLAGS IRQ_ZERO_LATENCY
 #else
@@ -439,8 +443,7 @@ int lll_done(void *param)
 #endif /* !CONFIG_BT_CTLR_LOW_LAT_ULL_DONE */
 
 #if defined(CONFIG_BT_CTLR_JIT_SCHEDULING)
-	struct event_done_extra *extra;
-	uint8_t result;
+	struct event_done_extra *extra; uint8_t result;
 
 	/* TODO: Pass from calling function */
 	result = DONE_COMPLETED;
@@ -453,6 +456,7 @@ int lll_done(void *param)
 	/* Set result in done extra data - type was set by the role */
 	extra->result = result;
 #endif /* CONFIG_BT_CTLR_JIT_SCHEDULING */
+  //LOG_INF("lll_done 1 ull %p", ull);
 
 	/* Let ULL know about LLL event done */
 	evdone = ull_event_done(ull);

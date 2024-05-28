@@ -85,6 +85,8 @@
 #include "ll_settings.h"
 
 #include "hal/debug.h"
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(ullsw,LOG_LEVEL_DBG);
 
 #if defined(CONFIG_BT_BROADCASTER)
 #define BT_ADV_TICKER_NODES ((TICKER_ID_ADV_LAST) - (TICKER_ID_ADV_STOP) + 1)
@@ -351,6 +353,8 @@ static MFIFO_DEFINE(prep, sizeof(struct lll_event), EVENT_PIPELINE_MAX);
  * If Extended Scanning with Coded PHY is supported, then an additional 1 resume
  * prepare could be enqueued in the pipeline during the preemption duration.
  */
+#define VENDOR_EVENT_DONE_MAX 12
+
 #if !defined(VENDOR_EVENT_DONE_MAX)
 #if defined(CONFIG_BT_CTLR_ADV_EXT) && defined(CONFIG_BT_OBSERVER)
 #if defined(CONFIG_BT_CTLR_PHY_CODED)
@@ -2193,6 +2197,7 @@ void *ull_event_done(void *param)
 		 * we will loose the packets in software stack.
 		 * If this happens during Conn Upd, this could cause LSTO
 		 */
+    LOG_INF("ull_event_done ignore param %p", param);
 		return NULL;
 	}
 
@@ -2201,6 +2206,7 @@ void *ull_event_done(void *param)
 
 	evdone->hdr.type = NODE_RX_TYPE_EVENT_DONE;
 	evdone->param = param;
+
 
 	ull_rx_put_sched(link, evdone);
 
@@ -2910,6 +2916,8 @@ static inline void rx_demux_event_done(memq_link_t *link,
 		LL_ASSERT(ull_ref_get(ull_hdr));
 		ull_ref_dec(ull_hdr);
 	}
+
+  //LOG_INF("rx_deumx_event_done param %p type %d", ull_hdr, done->extra.type);
 
 	/* Process role dependent event done */
 	switch (done->extra.type) {

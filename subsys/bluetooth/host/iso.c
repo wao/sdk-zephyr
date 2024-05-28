@@ -2483,6 +2483,7 @@ static struct bt_iso_big *get_free_big(void)
 		if (!atomic_test_and_set_bit(bigs[i].flags, BT_BIG_INITIALIZED)) {
 			bigs[i].handle = i;
 			sys_slist_init(&bigs[i].bis_channels);
+      LOG_INF("Alloc big %p with %d", &bigs[i], i);
 			return &bigs[i];
 		}
 	}
@@ -3080,6 +3081,8 @@ void hci_le_big_sync_established(struct net_buf *buf)
 	struct bt_iso_big *big;
 	int i;
 
+  LOG_DBG("evt big handle %d", evt->big_handle);
+
 	if (evt->big_handle >= ARRAY_SIZE(bigs)) {
 		LOG_WRN("Invalid BIG handle");
 		big = big_lookup_flag(BT_BIG_SYNCING);
@@ -3143,6 +3146,8 @@ static int hci_le_big_create_sync(const struct bt_le_per_adv_sync *sync, struct 
 	struct net_buf *buf;
 	int err;
 	uint8_t bit_idx = 0;
+
+  LOG_DBG("big handle %d", big->handle);
 
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_BIG_CREATE_SYNC, sizeof(*req) + big->num_bis);
 	if (!buf) {

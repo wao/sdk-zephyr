@@ -92,7 +92,7 @@
 #include "common/bt_str.h"
 #include "hal/debug.h"
 
-#define LOG_LEVEL CONFIG_BT_HCI_DRIVER_LOG_LEVEL
+#define LOG_LEVEL CONFIG_BT_HCI_DRIVER_LOG_LEVE
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_ctlr_hci);
 
@@ -7851,6 +7851,7 @@ static void le_big_sync_established(struct pdu_data *pdu,
 
 	sep = meta_evt(buf, BT_HCI_EVT_LE_BIG_SYNC_ESTABLISHED, evt_size);
 	sep->big_handle = (uint8_t)node_rx->hdr.handle;
+  LOG_ERR("big estabiled big handle %d", sep->big_handle);
 
 	/* Check for pdu field being aligned before accessing ISO sync
 	 * established event.

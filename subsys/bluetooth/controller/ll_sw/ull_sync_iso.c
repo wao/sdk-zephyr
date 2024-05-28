@@ -50,6 +50,9 @@
 
 #include "hal/debug.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(llsw,LOG_LEVEL_DBG);
+
 static int init_reset(void);
 static struct ll_sync_iso_set *sync_iso_get(uint8_t handle);
 static uint8_t sync_iso_handle_get(struct ll_sync_iso_set *sync);
@@ -65,8 +68,20 @@ static void ticker_stop_op_cb(uint32_t status, void *param);
 static void sync_iso_disable(void *param);
 static void disabled_cb(void *param);
 
-static memq_link_t link_lll_prepare;
-static struct mayfly mfy_lll_prepare = {0U, 0U, &link_lll_prepare, NULL, NULL};
+static memq_link_t link_lll_prepare[CONFIG_BT_CTLR_SCAN_SYNC_ISO_SET];
+static struct mayfly mfy_lll_prepare[CONFIG_BT_CTLR_SCAN_SYNC_ISO_SET];
+
+static void ull_ya_init(void){
+  int i;
+  for( i = 0; i < CONFIG_BT_CTLR_SCAN_SYNC_ISO_SET; ++i ){
+    struct mayfly * m = &mfy_lll_prepare[i];
+    m->_req = 0;
+    m->_ack = 0;
+    m->_link = &link_lll_prepare[i];
+    m->param = NULL;
+    m->fp = NULL;
+  }
+}
 
 static struct ll_sync_iso_set ll_sync_iso[CONFIG_BT_CTLR_SCAN_SYNC_ISO_SET];
 static struct lll_sync_iso_stream
@@ -102,6 +117,8 @@ uint8_t ll_big_sync_create(uint8_t big_handle, uint16_t sync_handle,
 		 */
 		return BT_HCI_ERR_MEM_CAPACITY_EXCEEDED;
 	}
+
+  LOG_DBG("create big %d for %p sync %d : %p", big_handle, sync_iso, sync_handle, sync );
 
 	/* Check if this ISO already is associated with a Periodic Sync */
 	if (sync_iso->sync) {
@@ -211,9 +228,12 @@ uint8_t ll_big_sync_create(uint8_t big_handle, uint16_t sync_handle,
 	/* Initialize ULL and LLL headers */
 	ull_hdr_init(&sync_iso->ull);
 	lll_hdr_init(lll, sync_iso);
+  LOG_ERR("sync %p ull %p lll %p lll parent %p sync_iso %p", sync, &sync_iso->ull, lll, lll->hdr.parent, sync_iso);
 
 	/* Enable periodic advertising to establish ISO sync */
 	sync->iso.sync_iso = sync_iso;
+
+  //LOG_ERR( "Create detail node_rx->hdr.handle %d", node_rx->hdr.handle);
 
 	return BT_HCI_ERR_SUCCESS;
 }
@@ -623,10 +643,12 @@ void ull_sync_iso_setup(struct ll_sync_iso_set *sync_iso,
 		lll->payload_count += lll->bn;
 	}
 
-	/* setup to use ISO create prepare function until sync established */
-	mfy_lll_prepare.fp = lll_sync_iso_create_prepare;
-
 	handle = sync_iso_handle_get(sync_iso);
+
+	/* setup to use ISO create prepare function until sync established */
+	mfy_lll_prepare[handle].fp = lll_sync_iso_create_prepare;
+  LOG_ERR("ull iso sync create prepare %p", sync_iso);
+
 	ret = ticker_start(TICKER_INSTANCE_ID_CTLR, TICKER_USER_ID_ULL_HIGH,
 			   (TICKER_ID_SCAN_SYNC_ISO_BASE + handle),
 			   ftr->ticks_anchor - ticks_slot_offset,
@@ -652,8 +674,8 @@ void ull_sync_iso_estab_done(struct node_rx_event_done *done)
 	struct node_rx_sync_iso *se;
 	struct node_rx_pdu *rx;
 
-	/* switch to normal prepare */
-	mfy_lll_prepare.fp = lll_sync_iso_prepare;
+
+  LOG_ERR("iso_estab_done param %p", done->param);
 
 	/* Get reference to ULL context */
 	sync_iso = CONTAINER_OF(done->param, struct ll_sync_iso_set, ull);
@@ -662,6 +684,11 @@ void ull_sync_iso_estab_done(struct node_rx_event_done *done)
 	rx = (void *)sync_iso->sync->iso.node_rx_estab;
 	rx->hdr.type = NODE_RX_TYPE_SYNC_ISO;
 	rx->hdr.handle = sync_iso_handle_get(sync_iso);
+
+	/* switch to normal prepare */
+	mfy_lll_prepare[rx->hdr.handle].fp = lll_sync_iso_prepare;
+
+  LOG_ERR("get big handle %d for %p", rx->hdr.handle, sync_iso);
 	rx->hdr.rx_ftr.param = sync_iso;
 
 	se = (void *)rx->pdu;
@@ -825,6 +852,8 @@ static int init_reset(void)
 {
 	uint8_t idx;
 
+  ull_ya_init();
+
 	/* Disable all active BIGs (uses blocking ull_ticker_stop_with_mark) */
 	for (idx = 0U; idx < CONFIG_BT_CTLR_SCAN_SYNC_ISO_SET; idx++) {
 		disable(idx);
@@ -894,6 +923,7 @@ static void ticker_cb(uint32_t ticks_at_expire, uint32_t ticks_drift,
 	struct lll_sync_iso *lll;
 	uint32_t ret;
 	uint8_t ref;
+  int big_handle;
 
 	DEBUG_RADIO_PREPARE_O(1);
 
@@ -908,6 +938,7 @@ static void ticker_cb(uint32_t ticks_at_expire, uint32_t ticks_drift,
 
 	sync_iso = param;
 	lll = &sync_iso->lll;
+	big_handle = sync_iso_handle_get(sync_iso);
 
 	/* Increment prepare reference count */
 	ref = ull_ref_inc(&sync_iso->ull);
@@ -919,11 +950,11 @@ static void ticker_cb(uint32_t ticks_at_expire, uint32_t ticks_drift,
 	p.lazy = lazy;
 	p.force = force;
 	p.param = lll;
-	mfy_lll_prepare.param = &p;
+	mfy_lll_prepare[big_handle].param = &p;
 
 	/* Kick LLL prepare */
 	ret = mayfly_enqueue(TICKER_USER_ID_ULL_HIGH, TICKER_USER_ID_LLL, 0U,
-			     &mfy_lll_prepare);
+			     &mfy_lll_prepare[big_handle]);
 	LL_ASSERT(!ret);
 
 	DEBUG_RADIO_PREPARE_O(1);

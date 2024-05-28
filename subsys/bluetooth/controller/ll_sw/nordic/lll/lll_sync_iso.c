@@ -38,6 +38,9 @@
 
 #include "hal/debug.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(lllsynciso,LOG_LEVEL_DBG);
+
 static int init_reset(void);
 static void prepare(void *param);
 static void create_prepare_bh(void *param);
@@ -91,6 +94,9 @@ int lll_sync_iso_reset(void)
 
 void lll_sync_iso_create_prepare(void *param)
 {
+  struct lll_prepare_param * p = (struct lll_prepare_param*)param;
+  LOG_ERR("lll sync iso create prepare param %p", p->param);
+
 	prepare(param);
 	create_prepare_bh(param);
 }
@@ -137,7 +143,8 @@ static void prepare(void *param)
 static void create_prepare_bh(void *param)
 {
 	int err;
-
+  //struct lll_prepare_param * p = (struct lll_prepare_param*)param;
+  //LOG_ERR("lll sync create prepare bh param %p", p->param);
 	/* Invoke common pipeline handling of prepare */
 	err = lll_prepare(lll_is_abort_cb, abort_cb, create_prepare_cb, 0U,
 			  param);
@@ -162,6 +169,8 @@ static int create_prepare_cb(struct lll_prepare_param *p)
 		DEBUG_RADIO_START_O(1);
 		return 0;
 	}
+
+  //LOG_ERR("lll sync create prepare cb param %p", p->param);
 
 	radio_isr_set(isr_rx_estab, p->param);
 
