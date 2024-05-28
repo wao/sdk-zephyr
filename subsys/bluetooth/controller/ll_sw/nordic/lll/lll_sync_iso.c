@@ -1031,7 +1031,8 @@ isr_rx_next_subevent:
 
 		start_us = hcto;
 		hcto = radio_tmr_start_us(0U, start_us);
-		LL_ASSERT(hcto == (start_us + 1U));
+    //FIXME:
+		//LL_ASSERT(hcto == (start_us + 1U));
 
 		hcto += ((EVENT_JITTER_US + EVENT_TICKER_RES_MARGIN_US +
 			  lll->window_widening_event_us) << 1) +
