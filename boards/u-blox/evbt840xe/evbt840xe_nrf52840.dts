@@ -1,6 +1,5 @@
 /*
- * BMD-340-EVAL board configuration
- * Copyright (c) 2020 u-blox AG
+ * Copyright (c) 2017 Linaro Limited
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,69 +10,26 @@
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
-	model = "u-blox BMD-340-EVAL EVK nRF52840";
-	compatible = "u-blox,ubx-bmd340eval-nrf52840";
+	model = "Nordic nRF52840 DK NRF52840";
+	compatible = "nordic,evbt840xe-nrf52840";
 
 	chosen {
-		zephyr,console = &uart0;
-		zephyr,shell-uart = &uart0;
-		zephyr,uart-mcumgr = &uart0;
-		zephyr,bt-mon-uart = &uart0;
-		zephyr,bt-c2h-uart = &uart0;
+		zephyr,console = &uart1;
+		zephyr,shell-uart = &uart1;
+		zephyr,uart-mcumgr = &uart1;
+		zephyr,bt-mon-uart = &uart1;
+		zephyr,bt-c2h-uart = &uart1;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,code-partition = &slot0_partition;
 		zephyr,ieee802154 = &ieee802154;
 	};
 
-	leds {
-		compatible = "gpio-leds";
-		led0: led_0 {
-			gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
-			label = "Red LED 0";
-		};
-		led1: led_1 {
-			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
-			label = "Red LED 1";
-		};
-		led2: led_2 {
-			gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
-			label = "Green LED 2";
-		};
-		led3: led_3 {
-			gpios = <&gpio0 16 GPIO_ACTIVE_LOW>;
-			label = "Green LED 3";
-		};
-	};
 
 	pwmleds {
 		compatible = "pwm-leds";
 		pwm_led0: pwm_led_0 {
 			pwms = <&pwm0 0 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
-		};
-	};
-
-	buttons {
-		compatible = "gpio-keys";
-		button0: button_0 {
-			gpios = <&gpio0 11 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-			label = "Push button switch 0";
-			zephyr,code = <INPUT_KEY_0>;
-		};
-		button1: button_1 {
-			gpios = <&gpio0 12 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-			label = "Push button switch 1";
-			zephyr,code = <INPUT_KEY_1>;
-		};
-		button2: button_2 {
-			gpios = <&gpio0 24 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-			label = "Push button switch 2";
-			zephyr,code = <INPUT_KEY_2>;
-		};
-		button3: button_3 {
-			gpios = <&gpio0 25 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-			label = "Push button switch 3";
-			zephyr,code = <INPUT_KEY_3>;
 		};
 	};
 
@@ -119,22 +75,35 @@
 
 	/* These aliases are provided for compatibility with samples */
 	aliases {
-		led0 = &led0;
-		led1 = &led1;
-		led2 = &led2;
-		led3 = &led3;
-		pwm-led0 = &pwm_led0;
-		sw0 = &button0;
-		sw1 = &button1;
-		sw2 = &button2;
-		sw3 = &button3;
 		watchdog0 = &wdt0;
-		spi-flash0 = &mx25r64;
 	};
+
+	nrf_radio_fem2: sky61122_fem {
+		compatible = "nordic,nrf21540-fem";
+    status = "disabled";
+		tx-en-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+		rx-en-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+	};
+
+	nrf_radio_fem: sky61122_fem_gen {
+		compatible = "generic-fem-two-ctrl-pins";
+    status = "okay";
+		ctx-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+		crx-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+    crx-settle-time-us = <1>;
+    ctx-settle-time-us = <1>;
+	};
+
+  
+
+};
+
+&radio {
+  fem = <&nrf_radio_fem>;
 };
 
 &adc {
-	status = "okay";
+	status = "disabled";
 };
 
 &uicr {
@@ -155,14 +124,15 @@
 
 &uart0 {
 	compatible = "nordic,nrf-uarte";
-	status = "okay";
 	current-speed = <115200>;
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-1 = <&uart0_sleep>;
 	pinctrl-names = "default", "sleep";
+  status = "disabled";
 };
 
 arduino_serial: &uart1 {
+	compatible = "nordic,nrf-uarte";
 	status = "okay";
 	current-speed = <115200>;
 	pinctrl-0 = <&uart1_default>;
@@ -172,23 +142,24 @@ arduino_serial: &uart1 {
 
 arduino_i2c: &i2c0 {
 	compatible = "nordic,nrf-twi";
-	status = "okay";
+	/* status = "okay"; */
 	pinctrl-0 = <&i2c0_default>;
 	pinctrl-1 = <&i2c0_sleep>;
 	pinctrl-names = "default", "sleep";
+	status = "disabled";
 };
 
 &i2c1 {
 	compatible = "nordic,nrf-twi";
 	/* Cannot be used together with spi1. */
-	/* status = "okay"; */
+	status = "disabled"; 
 	pinctrl-0 = <&i2c1_default>;
 	pinctrl-1 = <&i2c1_sleep>;
 	pinctrl-names = "default", "sleep";
 };
 
 &pwm0 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-1 = <&pwm0_sleep>;
 	pinctrl-names = "default", "sleep";
@@ -197,18 +168,19 @@ arduino_i2c: &i2c0 {
 &spi0 {
 	compatible = "nordic,nrf-spi";
 	/* Cannot be used together with i2c0. */
-	/* status = "okay"; */
+	status = "disabled";
 	pinctrl-0 = <&spi0_default>;
 	pinctrl-1 = <&spi0_sleep>;
 	pinctrl-names = "default", "sleep";
 };
 
 &spi1 {
-	compatible = "nordic,nrf-spi";
+	compatible = "nordic,nrf-spis";
 	status = "okay";
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-1 = <&spi1_sleep>;
 	pinctrl-names = "default", "sleep";
+  def-char = <0x00>;
 };
 
 &spi2 {
@@ -220,38 +192,11 @@ arduino_i2c: &i2c0 {
 };
 
 &qspi {
-	status = "okay";
-	pinctrl-0 = <&qspi_default>;
-	pinctrl-1 = <&qspi_sleep>;
-	pinctrl-names = "default", "sleep";
-	mx25r64: mx25r6435f@0 {
-		compatible = "nordic,qspi-nor";
-		reg = <0>;
-		/* MX25R64 supports only pp and pp4io */
-		writeoc = "pp4io";
-		/* MX25R64 supports all readoc options */
-		readoc = "read4io";
-		sck-frequency = <8000000>;
-		jedec-id = [c2 28 17];
-		sfdp-bfp = [
-			e5 20 f1 ff  ff ff ff 03
-			44 eb 08 6b  08 3b 04 bb
-			ee ff ff ff  ff ff 00 ff
-			ff ff 00 ff  0c 20 0f 52
-			10 d8 00 ff  23 72 f5 00
-			82 ed 04 cc  44 83 68 44
-			30 b0 30 b0  f7 c4 d5 5c
-			00 be 29 ff  f0 d0 ff ff
-		];
-		size = <67108864>;
-		has-dpd;
-		t-enter-dpd = <10000>;
-		t-exit-dpd = <35000>;
-	};
+	status = "disabled";
 };
 
 arduino_spi: &spi3 {
-	status = "okay";
+	status = "disabled";
 	cs-gpios = <&arduino_header 16 GPIO_ACTIVE_LOW>; /* D10 */
 	pinctrl-0 = <&spi3_default>;
 	pinctrl-1 = <&spi3_sleep>;
@@ -259,7 +204,7 @@ arduino_spi: &spi3 {
 };
 
 &ieee802154 {
-	status = "okay";
+	status = "disabled";
 };
 
 &flash0 {
@@ -275,15 +220,11 @@ arduino_spi: &spi3 {
 		};
 		slot0_partition: partition@c000 {
 			label = "image-0";
-			reg = <0x0000C000 0x00067000>;
+			reg = <0x0000C000 0x00076000>;
 		};
-		slot1_partition: partition@73000 {
+		slot1_partition: partition@82000 {
 			label = "image-1";
-			reg = <0x00073000 0x00067000>;
-		};
-		scratch_partition: partition@da000 {
-			label = "image-scratch";
-			reg = <0x000da000 0x0001e000>;
+			reg = <0x00082000 0x00076000>;
 		};
 
 		/*
@@ -304,5 +245,5 @@ arduino_spi: &spi3 {
 
 zephyr_udc0: &usbd {
 	compatible = "nordic,nrf-usbd";
-	status = "okay";
+	status = "disabled";
 };
