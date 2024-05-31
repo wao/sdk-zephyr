@@ -1,0 +1,5 @@
+board:
+  name: evbt840xe
+  vendor: u-blox
+  socs:
+  - name: nrf52840
