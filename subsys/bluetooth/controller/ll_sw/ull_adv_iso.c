@@ -50,6 +50,8 @@
 #include "bt_crypto.h"
 
 #include "hal/debug.h"
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(ulladviso,LOG_LEVEL_DBG);
 
 static int init_reset(void);
 static struct ll_adv_iso_set *adv_iso_get(uint8_t handle);
@@ -330,6 +332,8 @@ uint8_t ll_big_create(uint8_t big_handle, uint8_t adv_handle, uint8_t num_bis,
 			   (bn * PERIODIC_INT_UNIT_US)) * PERIODIC_INT_UNIT_US;
 	lll_adv_iso->iso_interval = iso_interval_us / PERIODIC_INT_UNIT_US;
 
+  LOG_ERR("big cfg bn %d iso_interval_us %d max_sdu %d, max_pdu %d sdu_per_event %d rtn %d", lll_adv_iso->bn, iso_interval_us, max_sdu, lll_adv_iso->max_pdu, sdu_per_event, rtn);
+
 	/* Calculate max available ISO event spacing */
 	slot_overhead = HAL_TICKER_TICKS_TO_US(ticks_slot_overhead);
 	if (slot_overhead < iso_interval_us) {
@@ -337,6 +341,7 @@ uint8_t ll_big_create(uint8_t big_handle, uint8_t adv_handle, uint8_t num_bis,
 	} else {
 		event_spacing_max = 0U;
 	}
+
 
 ll_big_create_rtn_retry:
 	/* Immediate Repetition Count (IRC), Mandatory IRC = 1 */
@@ -346,6 +351,7 @@ ll_big_create_rtn_retry:
 	 * without PTO added.
 	 */
 	lll_adv_iso->nse = lll_adv_iso->bn * lll_adv_iso->irc;
+  LOG_ERR("nse %d", lll_adv_iso->nse);
 
 	/* NOTE: Calculate sub_interval, if interleaved then it is Num_BIS x
 	 *       BIS_Spacing (by BT Spec.)
@@ -381,6 +387,7 @@ ll_big_create_rtn_retry:
 		return BT_HCI_ERR_INVALID_PARAM;
 	}
 
+  LOG_ERR("event spacing %d max %d", event_spacing, event_spacing_max );
 	/* Based on packing requested, sequential or interleaved */
 	if (packing) {
 		/* Interleaved Packing */
@@ -398,6 +405,8 @@ ll_big_create_rtn_retry:
 		lll_adv_iso->bis_spacing = lll_adv_iso->sub_interval *
 					   lll_adv_iso->nse;
 	}
+
+  LOG_ERR("nse2: %d", lll_adv_iso->nse);
 
 	/* Pre-Transmission Offset (PTO) */
 	if (lll_adv_iso->ptc) {
@@ -1022,6 +1031,9 @@ static uint16_t adv_iso_stream_handle_get(struct lll_adv_iso_stream *stream)
 static uint8_t ptc_calc(const struct lll_adv_iso *lll, uint32_t event_spacing,
 			uint32_t event_spacing_max)
 {
+
+  return 0;
+
 	if (event_spacing < event_spacing_max) {
 		uint8_t ptc;
 
@@ -1067,14 +1079,18 @@ static uint32_t adv_iso_time_get(const struct ll_adv_iso_set *adv_iso, bool max)
 	 * for time_us.
 	 */
 
-	if (IS_ENABLED(CONFIG_BT_CTLR_ADV_ISO_RESERVE_MAX) || max) {
+	//if (IS_ENABLED(CONFIG_BT_CTLR_ADV_ISO_RESERVE_MAX) || max) {
+	if (max) {
 		time_us = (pdu_spacing * lll_iso->nse * lll_iso->num_bis) +
 			  ctrl_spacing;
+    LOG_ERR("adv iso reserve max");
 	} else {
 		time_us = pdu_spacing * ((lll_iso->nse * lll_iso->num_bis) -
 					 lll_iso->ptc);
 	}
 
+
+  LOG_ERR("adv iso pdu_spacing %d ctrl_spacing %d nse %d num_bis %d time %d", pdu_spacing, ctrl_spacing, lll_iso->nse, lll_iso->num_bis, time_us);
 	/* Add implementation defined radio event overheads */
 	time_us += EVENT_OVERHEAD_START_US + EVENT_OVERHEAD_END_US;
 
@@ -1123,7 +1139,9 @@ static uint32_t adv_iso_start(struct ll_adv_iso_set *adv_iso,
 					    EVENT_OVERHEAD_START_US) -
 					EVENT_OVERHEAD_START_US +
 					(EVENT_TICKER_RES_MARGIN_US << 1));
-	}
+	} else {
+    LOG_ERR( "sched free sync ret %d", err );
+  }
 
 	/* setup to use ISO create prepare function for first radio event */
 	mfy_lll_prepare.fp = lll_adv_iso_create_prepare;
@@ -1137,6 +1155,8 @@ static uint32_t adv_iso_start(struct ll_adv_iso_set *adv_iso,
 			   TICKER_NULL_LAZY, ticks_slot, ticker_cb, adv_iso,
 			   ull_ticker_status_give, (void *)&ret_cb);
 	ret = ull_ticker_status_take(ret, &ret_cb);
+  LOG_ERR("ull iso adv setup anchor %d period %d slots %d and us %d pdu %d", ticks_anchor,  HAL_TICKER_US_TO_TICKS(iso_interval_us), ticks_slot, slot_us, adv_iso->lll.max_pdu);
+  LOG_ERR("interval us %d rtn %d", iso_interval_us);
 
 	return ret;
 }

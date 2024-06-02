@@ -647,7 +647,7 @@ void ull_sync_iso_setup(struct ll_sync_iso_set *sync_iso,
 
 	/* setup to use ISO create prepare function until sync established */
 	mfy_lll_prepare[handle].fp = lll_sync_iso_create_prepare;
-  LOG_ERR("ull iso sync create prepare %p", sync_iso);
+  //LOG_ERR("ull iso sync create prepare %p", sync_iso);
 
 	ret = ticker_start(TICKER_INSTANCE_ID_CTLR, TICKER_USER_ID_ULL_HIGH,
 			   (TICKER_ID_SCAN_SYNC_ISO_BASE + handle),
@@ -666,6 +666,8 @@ void ull_sync_iso_setup(struct ll_sync_iso_set *sync_iso,
 			   ticker_start_op_cb, (void *)__LINE__);
 	LL_ASSERT((ret == TICKER_STATUS_SUCCESS) ||
 		  (ret == TICKER_STATUS_BUSY));
+
+  LOG_ERR("ull iso sync setup anchor %d period %d slots %d and us %d", ftr->ticks_anchor - ticks_slot_offset, HAL_TICKER_US_TO_TICKS(interval_us), (sync_iso->ull.ticks_slot + ticks_slot_overhead), slot_us);
 }
 
 void ull_sync_iso_estab_done(struct node_rx_event_done *done)

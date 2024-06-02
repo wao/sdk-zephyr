@@ -54,6 +54,8 @@
 #include "ll_feat.h"
 
 #include "hal/debug.h"
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(ullsched,LOG_LEVEL_DBG);
 
 
 #if defined(CONFIG_BT_CENTRAL)
@@ -312,6 +314,7 @@ static int group_free_slot_get(uint8_t user_id, uint32_t ticks_slot_abs,
 					 ticker_match_any_op_cb, ull_hdr_get_cb,
 					 ticks_anchor, ticks_to_expire_prev,
 					 &remainder_prev, ticks_slot_prev);
+  LOG_INF("group_free_slot_get uid %d slot_abs %d, ticker_id %d ticker_anchor %d", user_id, ticks_slot_abs, ticker_id, *ticks_anchor);
 	if (ticker_id != TICKER_NULL) {
 		uint32_t ticks_to_expire;
 		uint32_t ticks_slot;

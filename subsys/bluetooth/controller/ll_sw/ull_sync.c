@@ -50,6 +50,8 @@
 
 #include <soc.h>
 #include "hal/debug.h"
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(ullsync,LOG_LEVEL_DBG);
 
 /* Check that timeout_reload member is at safe offset when ll_sync_set is
  * allocated using mem interface. timeout_reload being non-zero is used to
@@ -882,6 +884,8 @@ void ull_sync_setup(struct ll_scan_set *scan, struct ll_scan_aux_set *aux,
 			   ticker_start_op_cb, (void *)__LINE__);
 	LL_ASSERT((ret == TICKER_STATUS_SUCCESS) ||
 		  (ret == TICKER_STATUS_BUSY));
+
+  LOG_ERR("ull sync setup anchor %d period %d slots %d", ftr->ticks_anchor - ticks_slot_offset, HAL_TICKER_US_TO_TICKS(interval_us), (sync->ull.ticks_slot + ticks_slot_overhead));
 }
 
 void ull_sync_setup_reset(struct ll_scan_set *scan)
