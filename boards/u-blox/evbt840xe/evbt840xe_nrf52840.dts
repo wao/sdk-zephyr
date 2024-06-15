@@ -78,13 +78,6 @@
 		watchdog0 = &wdt0;
 	};
 
-	nrf_radio_fem2: sky61122_fem {
-		compatible = "nordic,nrf21540-fem";
-    status = "disabled";
-		tx-en-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
-		rx-en-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
-	};
-
 	nrf_radio_fem: sky61122_fem_gen {
 		compatible = "generic-fem-two-ctrl-pins";
     status = "okay";
@@ -93,8 +86,6 @@
     crx-settle-time-us = <1>;
     ctx-settle-time-us = <1>;
 	};
-
-  
 
 };
 
