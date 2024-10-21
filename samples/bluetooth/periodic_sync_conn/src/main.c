@@ -86,7 +86,7 @@ static void recv_cb(struct bt_le_per_adv_sync *sync,
 		}
 
 		bt_addr_le_to_str(&oob.addr, addr_str, sizeof(addr_str));
-		printk("Responding with own addr: %s\n", addr_str);
+		printk("Responding with own addr: %s subevent %d\n", addr_str, info->subevent);
 
 		net_buf_simple_add_u8(&rsp_buf, sizeof(bt_addr_le_t));
 		net_buf_simple_add_u8(&rsp_buf, BT_DATA_LE_BT_DEVICE_ADDRESS);

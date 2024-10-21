@@ -10,7 +10,7 @@
 
 #define NUM_RSP_SLOTS	 2 
 #define NUM_SUBEVENTS	 1 
-#define SUBEVENT_INTERVAL 30
+#define SUBEVENT_INTERVAL 0x8
 
 static const struct bt_le_per_adv_param per_adv_params = {
 	.interval_min = 32,
@@ -19,33 +19,34 @@ static const struct bt_le_per_adv_param per_adv_params = {
 	.num_subevents = NUM_SUBEVENTS,
 	.subevent_interval = SUBEVENT_INTERVAL,
 	.response_slot_delay = 16,
-	.response_slot_spacing = 0x6,
+	.response_slot_spacing = 48,
 	.num_response_slots = NUM_RSP_SLOTS,
 };
 
-static struct bt_le_per_adv_subevent_data_params subevent_data_param;
-static struct net_buf_simple data_buf;
-static uint32_t pkt_count = 0;
+static struct bt_le_per_adv_subevent_data_params subevent_data_params[NUM_SUBEVENTS];
+static struct net_buf_simple bufs[NUM_SUBEVENTS];
+static uint8_t backing_store[NUM_SUBEVENTS][PACKET_SIZE];
 
+BUILD_ASSERT(ARRAY_SIZE(bufs) == ARRAY_SIZE(subevent_data_params));
+BUILD_ASSERT(ARRAY_SIZE(backing_store) == ARRAY_SIZE(subevent_data_params));
 
 static void request_cb(struct bt_le_ext_adv *adv, const struct bt_le_per_adv_data_request *request)
 {
 	int err;
+	uint8_t to_send;
 
 	/* Continuously send the same dummy data and listen to all response slots */
 
-  pkt_count += 1;
+	to_send = MIN(request->count, ARRAY_SIZE(subevent_data_params));
+	for (size_t i = 0; i < to_send; i++) {
+		subevent_data_params[i].subevent =
+			(request->start + i) % per_adv_params.num_subevents;
+		subevent_data_params[i].response_slot_start = 0;
+		subevent_data_params[i].response_slot_count = NUM_RSP_SLOTS;
+		subevent_data_params[i].data = &bufs[i];
+	}
 
-  printk("request %d to %d at %d\n", request->start, request->count, pkt_count);
-
-
-
-		subevent_data_param.subevent = 0;
-		subevent_data_param.response_slot_start = 0;
-		subevent_data_param.response_slot_count = NUM_RSP_SLOTS;
-		subevent_data_param.data = &data_buf;
-
-	err = bt_le_per_adv_set_subevent_data(adv, 1, &subevent_data_param);
+	err = bt_le_per_adv_set_subevent_data(adv, to_send, subevent_data_params);
 	if (err) {
 		printk("Failed to set subevent data (err %d)\n", err);
 	}
@@ -70,10 +71,18 @@ static struct bt_conn *default_conn;
 static void response_cb(struct bt_le_ext_adv *adv, struct bt_le_per_adv_response_info *info,
 			struct net_buf_simple *buf)
 {
+	int err;
 	bt_addr_le_t peer;
 	char addr_str[BT_ADDR_LE_STR_LEN];
+	struct bt_conn_le_create_synced_param synced_param;
+	struct bt_le_conn_param conn_param;
 
 	if (!buf) {
+		return;
+	}
+
+	if (default_conn) {
+		/* Do not initiate new connections while already connected */
 		return;
 	}
 
@@ -85,7 +94,23 @@ static void response_cb(struct bt_le_ext_adv *adv, struct bt_le_per_adv_response
 	}
 
 	bt_addr_le_to_str(&peer, addr_str, sizeof(addr_str));
-	printk("Address %s in subevent %d\n", addr_str, info->subevent);
+	printk("Connecting to %s in subevent %d\n", addr_str, info->subevent);
+
+	synced_param.peer = &peer;
+	synced_param.subevent = info->subevent;
+
+	/* Choose same interval as PAwR advertiser to avoid scheduling conflicts */
+	conn_param.interval_min = SUBEVENT_INTERVAL;
+	conn_param.interval_max = SUBEVENT_INTERVAL;
+
+	/* Default values */
+	conn_param.latency = 0;
+	conn_param.timeout = 400;
+
+	err = bt_conn_le_create_synced(adv, &synced_param, &conn_param, &default_conn);
+	if (err) {
+		printk("Failed to initiate connection (err %d)", err);
+	}
 }
 
 static const struct bt_le_ext_adv_cb adv_cb = {
@@ -122,7 +147,16 @@ BT_CONN_CB_DEFINE(conn_cb) = {
 
 static void init_bufs(void)
 {
-		net_buf_simple_init_with_data(&data_buf, &pkt_count, sizeof(pkt_count));
+	/* Set up some dummy data to send */
+	for (size_t i = 0; i < ARRAY_SIZE(backing_store); i++) {
+		backing_store[i][0] = ARRAY_SIZE(backing_store[i]) - 1;
+		backing_store[i][1] = BT_DATA_MANUFACTURER_DATA;
+		backing_store[i][2] = 0x59; /* Nordic */
+		backing_store[i][3] = 0x00;
+
+		net_buf_simple_init_with_data(&bufs[i], &backing_store[i],
+					      ARRAY_SIZE(backing_store[i]));
+	}
 }
 
 static const struct bt_data ad[] = {
