@@ -8,19 +8,32 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/gap.h>
 
-#define NUM_RSP_SLOTS	 2 
+#define NUM_RSP_SLOTS	 1 
 #define NUM_SUBEVENTS	 1 
 #define SUBEVENT_INTERVAL 30
 
+/*
 static const struct bt_le_per_adv_param per_adv_params = {
 	.interval_min = 32,
 	.interval_max = 32,
 	.options = 0,
 	.num_subevents = NUM_SUBEVENTS,
-	.subevent_interval = SUBEVENT_INTERVAL,
+	.subevent_interval = 28,
 	.response_slot_delay = 16,
-	.response_slot_spacing = 0x6,
+	.response_slot_spacing = 50, 
 	.num_response_slots = NUM_RSP_SLOTS,
+};
+*/
+
+static const struct bt_le_per_adv_param per_adv_params = {
+	.interval_min = 32,
+	.interval_max = 32,
+	.options = 0,
+	.num_subevents = 1,
+	.subevent_interval = 28,
+	.response_slot_delay = 16,
+	.response_slot_spacing = 50,
+	.num_response_slots = 2,
 };
 
 static struct bt_le_per_adv_subevent_data_params subevent_data_param;
@@ -42,7 +55,7 @@ static void request_cb(struct bt_le_ext_adv *adv, const struct bt_le_per_adv_dat
 
 		subevent_data_param.subevent = 0;
 		subevent_data_param.response_slot_start = 0;
-		subevent_data_param.response_slot_count = NUM_RSP_SLOTS;
+		subevent_data_param.response_slot_count = 1;
 		subevent_data_param.data = &data_buf;
 
 	err = bt_le_per_adv_set_subevent_data(adv, 1, &subevent_data_param);
@@ -129,6 +142,23 @@ static const struct bt_data ad[] = {
 	BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
 };
 
+/*
+struct bt_le_adv_param adv_param = { BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_EXT_ADV | BT_LE_ADV_OPT_CODED, 
+    BT_GAP_ADV_FAST_INT_MIN_2, BT_GAP_ADV_FAST_INT_MAX_2, NULL) };
+    */
+/*
+struct bt_le_adv_param adv_param = {
+		.id = BT_ID_DEFAULT,
+		.sid = 0U,
+		.secondary_max_skip = 0U,
+		.options = (BT_LE_ADV_OPT_EXT_ADV |
+			    BT_LE_ADV_OPT_CONNECTABLE |
+			    BT_LE_ADV_OPT_CODED),
+		.interval_min = BT_GAP_ADV_FAST_INT_MIN_2,
+		.interval_max = BT_GAP_ADV_FAST_INT_MAX_2,
+		.peer = NULL,
+	};
+  */
 
 int main(void)
 {
@@ -146,8 +176,11 @@ int main(void)
 		return 0;
 	}
 
+  //adv_param.options = adv_param.options | BT_LE_ADV_OPT_CODED;
+
 	/* Create a non-connectable non-scannable advertising set */
-	err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN, &adv_cb, &pawr_adv);
+	err = bt_le_ext_adv_create(BT_LE_EXT_ADV_CODED_NCONN, &adv_cb, &pawr_adv);
+	//err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN, &adv_cb, &pawr_adv);
 	if (err) {
 		printk("Failed to create advertising set (err %d)\n", err);
 		return 0;
