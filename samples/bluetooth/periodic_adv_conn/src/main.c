@@ -38,7 +38,12 @@ static const struct bt_le_per_adv_param per_adv_params = {
 
 static struct bt_le_per_adv_subevent_data_params subevent_data_param;
 static struct net_buf_simple data_buf;
-static uint32_t pkt_count = 0;
+struct send_pkt {
+   uint32_t pkt_count;
+   uint8_t buf[241];
+};
+
+static struct send_pkt pkt;
 
 
 static void request_cb(struct bt_le_ext_adv *adv, const struct bt_le_per_adv_data_request *request)
@@ -47,9 +52,9 @@ static void request_cb(struct bt_le_ext_adv *adv, const struct bt_le_per_adv_dat
 
 	/* Continuously send the same dummy data and listen to all response slots */
 
-  pkt_count += 1;
+  pkt.pkt_count += 1;
 
-  printk("request %d to %d at %d\n", request->start, request->count, pkt_count);
+  printk("request %d to %d at %d\n", request->start, request->count, pkt.pkt_count);
 
 
 
@@ -83,22 +88,11 @@ static struct bt_conn *default_conn;
 static void response_cb(struct bt_le_ext_adv *adv, struct bt_le_per_adv_response_info *info,
 			struct net_buf_simple *buf)
 {
-	bt_addr_le_t peer;
-	char addr_str[BT_ADDR_LE_STR_LEN];
-
 	if (!buf) {
 		return;
 	}
 
-	bt_addr_le_copy(&peer, &bt_addr_le_none);
-	bt_data_parse(buf, get_address, &peer);
-	if (bt_addr_le_eq(&peer, &bt_addr_le_none)) {
-		/* No address found */
-		return;
-	}
-
-	bt_addr_le_to_str(&peer, addr_str, sizeof(addr_str));
-	printk("Address %s in subevent %d\n", addr_str, info->subevent);
+  printk("recevied\n");
 }
 
 static const struct bt_le_ext_adv_cb adv_cb = {
@@ -135,7 +129,8 @@ BT_CONN_CB_DEFINE(conn_cb) = {
 
 static void init_bufs(void)
 {
-		net_buf_simple_init_with_data(&data_buf, &pkt_count, sizeof(pkt_count));
+		net_buf_simple_init_with_data(&data_buf, &pkt, sizeof(pkt));
+    pkt.pkt_count = 0;
 }
 
 static const struct bt_data ad[] = {

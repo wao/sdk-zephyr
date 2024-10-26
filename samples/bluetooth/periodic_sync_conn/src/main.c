@@ -54,49 +54,36 @@ static void term_cb(struct bt_le_per_adv_sync *sync,
 }
 
 static struct bt_le_per_adv_response_params rsp_params;
+static struct net_buf_simple data_buf;
+static uint32_t pkt_count = 0;
 
-NET_BUF_SIMPLE_DEFINE_STATIC(rsp_buf, sizeof(bt_addr_le_t) + 2 * sizeof(uint8_t));
+
 
 static void recv_cb(struct bt_le_per_adv_sync *sync,
 		    const struct bt_le_per_adv_sync_recv_info *info, struct net_buf_simple *buf)
 {
 	int err;
-	struct bt_le_oob oob;
-	char addr_str[BT_ADDR_LE_STR_LEN];
-
 	if (default_conn) {
 		/* Only respond with address if not already connected */
 		return;
 	}
 
+  pkt_count ++;
+
 	if (buf && buf->len) {
 		/* Respond with own address for the advertiser to connect to */
-		net_buf_simple_reset(&rsp_buf);
-
 		rsp_params.request_event = info->periodic_event_counter;
 		rsp_params.request_subevent = info->subevent;
 		rsp_params.response_subevent = info->subevent;
 		rsp_params.response_slot = 0;
 
-		err = bt_le_oob_get_local(BT_ID_DEFAULT, &oob);
-		if (err) {
-			printk("Failed to get OOB data (err %d)\n", err);
-
-			return;
-		}
-
-		bt_addr_le_to_str(&oob.addr, addr_str, sizeof(addr_str));
-		printk("Responding with own addr: %s subevent %d\n", addr_str, info->subevent);
-
-		net_buf_simple_add_u8(&rsp_buf, sizeof(bt_addr_le_t));
-		net_buf_simple_add_u8(&rsp_buf, BT_DATA_LE_BT_DEVICE_ADDRESS);
-		net_buf_simple_add_mem(&rsp_buf, &oob.addr.a, sizeof(oob.addr.a));
-		net_buf_simple_add_u8(&rsp_buf, oob.addr.type);
-
-		err = bt_le_per_adv_set_response_data(sync, &rsp_params, &rsp_buf);
+		err = bt_le_per_adv_set_response_data(sync, &rsp_params, &data_buf);
 		if (err) {
 			printk("Failed to send response (err %d)\n", err);
 		}
+
+    uint32_t r_cnt = net_buf_simple_pull_le32(buf);
+		printk("Received: subevent %d value %d, len %d\n", info->subevent, r_cnt, buf->len);
 	} else if (buf) {
 		printk("Received empty indication: subevent %d\n", info->subevent);
 	} else {
@@ -187,6 +174,9 @@ int main(void)
 
 	printk("Starting Periodic Advertising with Responses Synchronization Demo\n");
 
+ 	net_buf_simple_init_with_data(&data_buf, &pkt_count, sizeof(pkt_count));
+
+
 	err = bt_enable(NULL);
 	if (err) {
 		printk("Bluetooth init failed (err %d)\n", err);
@@ -197,7 +187,7 @@ int main(void)
 	bt_le_scan_cb_register(&scan_callbacks);
 	bt_le_per_adv_sync_cb_register(&sync_callbacks);
 
-	err = bt_le_scan_start(BT_LE_SCAN_ACTIVE, NULL);
+	err = bt_le_scan_start(BT_LE_SCAN_CODED_ACTIVE, NULL);
 	if (err) {
 		printk("failed (err %d)\n", err);
 
