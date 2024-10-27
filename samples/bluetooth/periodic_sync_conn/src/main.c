@@ -21,6 +21,12 @@ static bool per_adv_found;
 static bt_addr_le_t per_addr;
 static uint8_t per_sid;
 
+#if CONFIG_YA_SECOND_SLOT
+#define RSP_SLOT 1
+#else
+#define RSP_SLOT 0
+#endif
+
 static void sync_cb(struct bt_le_per_adv_sync *sync, struct bt_le_per_adv_sync_synced_info *info)
 {
 	struct bt_le_per_adv_sync_subevent_params params;
@@ -55,7 +61,12 @@ static void term_cb(struct bt_le_per_adv_sync *sync,
 
 static struct bt_le_per_adv_response_params rsp_params;
 static struct net_buf_simple data_buf;
-static uint32_t pkt_count = 0;
+struct rsp_buf_t {
+  uint32_t pkt_count;
+  uint8_t extra[64];
+};
+
+struct rsp_buf_t rsp_buf;
 
 
 
@@ -68,22 +79,23 @@ static void recv_cb(struct bt_le_per_adv_sync *sync,
 		return;
 	}
 
-  pkt_count ++;
+  rsp_buf.pkt_count ++;
 
 	if (buf && buf->len) {
 		/* Respond with own address for the advertiser to connect to */
 		rsp_params.request_event = info->periodic_event_counter;
 		rsp_params.request_subevent = info->subevent;
 		rsp_params.response_subevent = info->subevent;
-		rsp_params.response_slot = 0;
+		rsp_params.response_slot = RSP_SLOT;
 
 		err = bt_le_per_adv_set_response_data(sync, &rsp_params, &data_buf);
 		if (err) {
 			printk("Failed to send response (err %d)\n", err);
 		}
 
+    int len = buf->len;
     uint32_t r_cnt = net_buf_simple_pull_le32(buf);
-		printk("Received: subevent %d value %d, len %d\n", info->subevent, r_cnt, buf->len);
+		printk("Received: subevent %d value %d, len %d, request event %d slot %d\n", info->subevent, r_cnt, len, info->periodic_event_counter, rsp_params.response_slot);
 	} else if (buf) {
 		printk("Received empty indication: subevent %d\n", info->subevent);
 	} else {
@@ -174,7 +186,7 @@ int main(void)
 
 	printk("Starting Periodic Advertising with Responses Synchronization Demo\n");
 
- 	net_buf_simple_init_with_data(&data_buf, &pkt_count, sizeof(pkt_count));
+ 	net_buf_simple_init_with_data(&data_buf, &rsp_buf, sizeof(rsp_buf));
 
 
 	err = bt_enable(NULL);

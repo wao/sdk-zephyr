@@ -1,0 +1,15 @@
+#
+# Copyright (c) 2018 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+#----------------------------------------------------------------------------#
+
+rsource "Kconfig.defaults"
+
+config YA_SECOND_SLOT
+  bool "send response in second slot"
+  default n
+
+source "Kconfig.zephyr"

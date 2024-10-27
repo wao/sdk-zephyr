@@ -8,7 +8,7 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/gap.h>
 
-#define NUM_RSP_SLOTS	 1 
+#define NUM_RSP_SLOTS	 2 
 #define NUM_SUBEVENTS	 1 
 #define SUBEVENT_INTERVAL 30
 
@@ -30,9 +30,9 @@ static const struct bt_le_per_adv_param per_adv_params = {
 	.interval_max = 32,
 	.options = 0,
 	.num_subevents = 1,
-	.subevent_interval = 28,
-	.response_slot_delay = 16,
-	.response_slot_spacing = 50,
+	.subevent_interval = 32,
+	.response_slot_delay = 13,
+	.response_slot_spacing = 46,
 	.num_response_slots = 2,
 };
 
@@ -40,7 +40,7 @@ static struct bt_le_per_adv_subevent_data_params subevent_data_param;
 static struct net_buf_simple data_buf;
 struct send_pkt {
    uint32_t pkt_count;
-   uint8_t buf[241];
+   uint8_t buf[210];
 };
 
 static struct send_pkt pkt;
@@ -60,7 +60,7 @@ static void request_cb(struct bt_le_ext_adv *adv, const struct bt_le_per_adv_dat
 
 		subevent_data_param.subevent = 0;
 		subevent_data_param.response_slot_start = 0;
-		subevent_data_param.response_slot_count = 1;
+		subevent_data_param.response_slot_count = 2;
 		subevent_data_param.data = &data_buf;
 
 	err = bt_le_per_adv_set_subevent_data(adv, 1, &subevent_data_param);
@@ -92,7 +92,7 @@ static void response_cb(struct bt_le_ext_adv *adv, struct bt_le_per_adv_response
 		return;
 	}
 
-  printk("recevied\n");
+  printk("recevied %d from %d\n", buf->len, info->response_slot);
 }
 
 static const struct bt_le_ext_adv_cb adv_cb = {
