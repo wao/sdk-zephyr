@@ -14,7 +14,7 @@ flash: f2 f1
 	#west flash -i 682758055
 
 f2:
-	west flash -d build/slot1 -i 1050138562
+	west flash -d build/slot2 -i 1050138562
 
 f1:
 	west flash -d build/slot1 -i 1050143548

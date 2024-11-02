@@ -31,8 +31,8 @@ static const struct bt_le_per_adv_param per_adv_params = {
 	.options = 0,
 	.num_subevents = 1,
 	.subevent_interval = 32,
-	.response_slot_delay = 13,
-	.response_slot_spacing = 46,
+	.response_slot_delay = 16,
+	.response_slot_spacing = 70,
 	.num_response_slots = 2,
 };
 
