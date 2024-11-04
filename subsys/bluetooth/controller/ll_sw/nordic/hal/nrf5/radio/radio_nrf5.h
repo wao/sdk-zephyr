@@ -57,6 +57,7 @@
 #include "radio_nrf5_ppi_resources.h"
 #include "radio_nrf5_ppi.h"
 #elif defined(DPPI_PRESENT)
+#include <hal/nrf_gpiote.h>
 #include <hal/nrf_timer.h>
 #include <hal/nrf_rtc.h>
 #include <hal/nrf_aar.h>

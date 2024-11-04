@@ -28,6 +28,11 @@
 #include "ll_sw/pdu.h"
 
 #include "radio_internal.h"
+#include <zephyr/logging/log_ctrl.h>
+#include <zephyr/logging/log.h>
+
+LOG_MODULE_REGISTER(radio, LOG_LEVEL_DBG);
+
 
 /* Converts the GPIO controller in a FEM property's GPIO specification
  * to its nRF register map pointer.
@@ -170,7 +175,10 @@ void radio_isr_set(radio_isr_cb_t cb, void *param)
 
 void radio_setup(void)
 {
+  LOG_DBG("Setup radio");
+
 #if defined(HAL_RADIO_GPIO_HAVE_PA_PIN)
+  LOG_DBG("setup PA pin");
 	NRF_GPIO_PA->DIRSET = BIT(NRF_GPIO_PA_PIN);
 	if (ACTIVE_LOW(NRF_GPIO_PA_FLAGS)) {
 		NRF_GPIO_PA->OUTSET = BIT(NRF_GPIO_PA_PIN);
@@ -1551,6 +1559,7 @@ uint32_t radio_tmr_sample_get(void)
 #if defined(HAL_RADIO_GPIO_HAVE_PA_PIN)
 void radio_gpio_pa_setup(void)
 {
+  //LOG_DBG("gpio_pa_setup");
 	NRF_GPIOTE->CONFIG[HAL_PALNA_GPIOTE_CHAN] =
 		(GPIOTE_CONFIG_MODE_Task <<
 		 GPIOTE_CONFIG_MODE_Pos) |

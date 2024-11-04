@@ -24,10 +24,11 @@
 #include <zephyr/bluetooth/hci_raw.h>
 #include <zephyr/bluetooth/hci_vs.h>
 
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(hci_ipc, CONFIG_BT_LOG_LEVEL);
+LOG_MODULE_REGISTER(hci_ipc, LOG_LEVEL_INF);
 
 static struct ipc_ept hci_ept;
 
@@ -276,7 +277,7 @@ static void hci_ipc_send(struct net_buf *buf, bool is_fatal_err)
 		}
 	} while (ret < 0);
 
-	LOG_INF("Sent message of %d bytes.", ret);
+	LOG_DBG("Sent message of %d bytes.", ret);
 
 	net_buf_unref(buf);
 }
@@ -362,7 +363,7 @@ static void hci_ept_bound(void *priv)
 
 static void hci_ept_recv(const void *data, size_t len, void *priv)
 {
-	LOG_INF("Received message of %u bytes.", len);
+	LOG_DBG("Received message of %u bytes.", len);
 	hci_ipc_rx((uint8_t *) data, len);
 }
 
@@ -374,6 +375,19 @@ static struct ipc_ept_cfg hci_ept_cfg = {
 	},
 };
 
+#define HAS_FEM 1
+
+
+#if HAS_FEM
+const struct gpio_dt_spec mode_gpio = GPIO_DT_SPEC_GET(DT_NODELABEL(nrf_radio_fem), mode_gpios);
+
+static void init_fem_gpio(void){
+  //gpio_pin_configure_dt(&t_gpio, GPIO_OUTPUT_ACTIVE);
+  gpio_pin_configure_dt(&mode_gpio, GPIO_OUTPUT_INACTIVE);
+  //gpio_pin_configure_dt(&mode_gpio, GPIO_OUTPUT_ACTIVE);
+}
+#endif
+
 int main(void)
 {
 	int err;
@@ -383,7 +397,10 @@ int main(void)
 	/* incoming events and data from the controller */
 	static K_FIFO_DEFINE(rx_queue);
 
-	LOG_DBG("Start");
+  printk("hello\n");
+	LOG_ERR("Start");
+
+  init_fem_gpio();
 
 	/* Enable the raw interface, this will in turn open the HCI driver */
 	bt_enable_raw(&rx_queue);
