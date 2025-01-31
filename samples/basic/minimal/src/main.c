@@ -5,12 +5,16 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(minimal, LOG_LEVEL_DBG);
+
 
 int main(void)
 {
-#ifdef CONFIG_SAMPLE_DO_OUTPUT
-	printk("Hello World from minimal!\n");
-#endif
+  while(1){
+    LOG_INF("Hello World from minimal!\n");
+    k_sleep(K_SECONDS(5));
+  }
 
 	return 0;
 }
