@@ -241,10 +241,13 @@ static void config_led(void)
 static struct gpio_dt_spec key1 = GPIO_DT_SPEC_GET(DT_NODELABEL(key1), gpios);
 static struct gpio_callback key1_cb_data;
 
+K_SEM_DEFINE(key1_sem, 1, 1);
+
 void key1_pressed(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
 {
 	LOG_INF("Button pressed at %" PRIu32 "\n", k_cycle_get_32());
+  k_sem_give(&key1_sem);
 }
 
 void config_key1(void)
@@ -304,8 +307,8 @@ int main(void)
 	 * of starting delayed work so we do it here
 	 */
 	while (1) {
+    k_sem_take(&key1_sem, K_FOREVER);
     LOG_INF("Bluetooth run %d", i++);
-		k_sleep(K_SECONDS(1));
 
 		/* Current Time Service updates only when time is changed */
 		//cts_notify();
@@ -316,9 +319,9 @@ int main(void)
 		/* Battery level simulation */
 		//bas_notify();
 
-    vnd_value[0]++;
+    vnd_value[0] = gpio_pin_get_dt(&key1);
     bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
-    gpio_pin_set_dt(&led, i%2);
+    gpio_pin_set_dt(&led, vnd_value[0]);
 	}
 	return 0;
 }
