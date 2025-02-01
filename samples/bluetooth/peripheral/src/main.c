@@ -14,31 +14,33 @@
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/kernel.h>
 
-#include <zephyr/settings/settings.h>
+//#include <zephyr/settings/settings.h>
 
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
-#include <zephyr/bluetooth/services/bas.h>
-#include <zephyr/bluetooth/services/hrs.h>
+//#include <zephyr/bluetooth/services/bas.h>
+//#include <zephyr/bluetooth/services/hrs.h>
 #include <zephyr/bluetooth/services/ias.h>
 
 #include "cts.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(blekey, LOG_LEVEL_DBG);
+
 /* Custom Service Variables */
-#define BT_UUID_CUSTOM_SERVICE_VAL \
-	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
+//#define BT_UUID_CUSTOM_SERVICE_VAL \
+//	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
 
-static const struct bt_uuid_128 vnd_uuid = BT_UUID_INIT_128(
-	BT_UUID_CUSTOM_SERVICE_VAL);
+#define BT_UUID_CUSTOM_SERVICE_VAL 0xFFE0
 
-static const struct bt_uuid_128 vnd_enc_uuid = BT_UUID_INIT_128(
-	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef1));
+//static const struct bt_uuid_128 vnd_uuid = BT_UUID_INIT_128(
+//	BT_UUID_CUSTOM_SERVICE_VAL);
+static const struct bt_uuid_16 vnd_uuid = BT_UUID_INIT_16(BT_UUID_CUSTOM_SERVICE_VAL);
 
-static const struct bt_uuid_128 vnd_auth_uuid = BT_UUID_INIT_128(
-	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef2));
+static const struct bt_uuid_16 vnd_enc_uuid = BT_UUID_INIT_16(0xFEE1);
 
 #define VND_MAX_LEN 20
 
@@ -83,12 +85,12 @@ static void vnd_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
 static void indicate_cb(struct bt_conn *conn,
 			struct bt_gatt_indicate_params *params, uint8_t err)
 {
-	printk("Indication %s\n", err != 0U ? "fail" : "success");
+	LOG_INF("Indication %s\n", err != 0U ? "fail" : "success");
 }
 
 static void indicate_destroy(struct bt_gatt_indicate_params *params)
 {
-	printk("Indication complete\n");
+	LOG_INF("Indication complete\n");
 	indicating = 0U;
 }
 
@@ -189,41 +191,18 @@ static ssize_t write_without_rsp_vnd(struct bt_conn *conn,
 BT_GATT_SERVICE_DEFINE(vnd_svc,
 	BT_GATT_PRIMARY_SERVICE(&vnd_uuid),
 	BT_GATT_CHARACTERISTIC(&vnd_enc_uuid.uuid,
-			       BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE |
-			       BT_GATT_CHRC_INDICATE,
-			       BT_GATT_PERM_READ_ENCRYPT |
-			       BT_GATT_PERM_WRITE_ENCRYPT,
+			       BT_GATT_CHRC_READ |
+			       BT_GATT_CHRC_NOTIFY,
+			       BT_GATT_PERM_READ,
 			       read_vnd, write_vnd, vnd_value),
 	BT_GATT_CCC(vnd_ccc_cfg_changed,
-		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE_ENCRYPT),
-	BT_GATT_CHARACTERISTIC(&vnd_auth_uuid.uuid,
-			       BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
-			       BT_GATT_PERM_READ_AUTHEN |
-			       BT_GATT_PERM_WRITE_AUTHEN,
-			       read_vnd, write_vnd, vnd_auth_value),
-	BT_GATT_CHARACTERISTIC(&vnd_long_uuid.uuid, BT_GATT_CHRC_READ |
-			       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_EXT_PROP,
-			       BT_GATT_PERM_READ | BT_GATT_PERM_WRITE |
-			       BT_GATT_PERM_PREPARE_WRITE,
-			       read_vnd, write_long_vnd, &vnd_long_value),
-	BT_GATT_CEP(&vnd_long_cep),
-	BT_GATT_CHARACTERISTIC(&vnd_signed_uuid.uuid, BT_GATT_CHRC_READ |
-			       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_AUTH,
-			       BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-			       read_signed, write_signed, &signed_value),
-	BT_GATT_CHARACTERISTIC(&vnd_write_cmd_uuid.uuid,
-			       BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-			       BT_GATT_PERM_WRITE, NULL,
-			       write_without_rsp_vnd, &vnd_wwr_value),
+		    BT_GATT_PERM_READ),
 );
 
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
-		      BT_UUID_16_ENCODE(BT_UUID_HRS_VAL),
-		      BT_UUID_16_ENCODE(BT_UUID_BAS_VAL),
-		      BT_UUID_16_ENCODE(BT_UUID_CTS_VAL)),
-	BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_CUSTOM_SERVICE_VAL),
+		      BT_UUID_16_ENCODE(BT_UUID_CUSTOM_SERVICE_VAL)),
 };
 
 static const struct bt_data sd[] = {
@@ -232,7 +211,7 @@ static const struct bt_data sd[] = {
 
 void mtu_updated(struct bt_conn *conn, uint16_t tx, uint16_t rx)
 {
-	printk("Updated MTU: TX: %d RX: %d bytes\n", tx, rx);
+	LOG_INF("Updated MTU: TX: %d RX: %d bytes\n", tx, rx);
 }
 
 static struct bt_gatt_cb gatt_callbacks = {
@@ -242,30 +221,30 @@ static struct bt_gatt_cb gatt_callbacks = {
 static void connected(struct bt_conn *conn, uint8_t err)
 {
 	if (err) {
-		printk("Connection failed (err 0x%02x)\n", err);
+		LOG_INF("Connection failed (err 0x%02x)\n", err);
 	} else {
-		printk("Connected\n");
+		LOG_INF("Connected\n");
 	}
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
-	printk("Disconnected (reason 0x%02x)\n", reason);
+	LOG_INF("Disconnected (reason 0x%02x)\n", reason);
 }
 
 static void alert_stop(void)
 {
-	printk("Alert stopped\n");
+	LOG_INF("Alert stopped\n");
 }
 
 static void alert_start(void)
 {
-	printk("Mild alert started\n");
+	LOG_INF("Mild alert started\n");
 }
 
 static void alert_high_start(void)
 {
-	printk("High alert started\n");
+	LOG_INF("High alert started\n");
 }
 
 BT_CONN_CB_DEFINE(conn_callbacks) = {
@@ -283,21 +262,21 @@ static void bt_ready(void)
 {
 	int err;
 
-	printk("Bluetooth initialized\n");
+	LOG_INF("Bluetooth initialized\n");
 
-	cts_init();
+	//cts_init();
 
-	if (IS_ENABLED(CONFIG_SETTINGS)) {
-		settings_load();
-	}
+	//if (IS_ENABLED(CONFIG_SETTINGS)) {
+//		settings_load();
+	//}
 
 	err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
 	if (err) {
-		printk("Advertising failed to start (err %d)\n", err);
+		LOG_INF("Advertising failed to start (err %d)\n", err);
 		return;
 	}
 
-	printk("Advertising successfully started\n");
+	LOG_INF("Advertising successfully started\n");
 }
 
 static void auth_passkey_display(struct bt_conn *conn, unsigned int passkey)
@@ -306,7 +285,7 @@ static void auth_passkey_display(struct bt_conn *conn, unsigned int passkey)
 
 	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-	printk("Passkey for %s: %06u\n", addr, passkey);
+	LOG_INF("Passkey for %s: %06u\n", addr, passkey);
 }
 
 static void auth_cancel(struct bt_conn *conn)
@@ -315,7 +294,7 @@ static void auth_cancel(struct bt_conn *conn)
 
 	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-	printk("Pairing cancelled: %s\n", addr);
+	LOG_INF("Pairing cancelled: %s\n", addr);
 }
 
 static struct bt_conn_auth_cb auth_cb_display = {
@@ -324,6 +303,7 @@ static struct bt_conn_auth_cb auth_cb_display = {
 	.cancel = auth_cancel,
 };
 
+#if 0
 static void bas_notify(void)
 {
 	uint8_t battery_level = bt_bas_get_battery_level();
@@ -349,6 +329,7 @@ static void hrs_notify(void)
 
 	bt_hrs_notify(heartrate);
 }
+#endif
 
 int main(void)
 {
@@ -356,36 +337,41 @@ int main(void)
 	char str[BT_UUID_STR_LEN];
 	int err;
 
+  int i = 0;
+  LOG_INF("Bluetooth init %d", i++);
+  k_sleep(K_SECONDS(1));
+
 	err = bt_enable(NULL);
 	if (err) {
-		printk("Bluetooth init failed (err %d)\n", err);
+		LOG_INF("Bluetooth init failed (err %d)\n", err);
 		return 0;
 	}
 
 	bt_ready();
 
 	bt_gatt_cb_register(&gatt_callbacks);
-	bt_conn_auth_cb_register(&auth_cb_display);
+	//bt_conn_auth_cb_register(&auth_cb_display);
 
 	vnd_ind_attr = bt_gatt_find_by_uuid(vnd_svc.attrs, vnd_svc.attr_count,
 					    &vnd_enc_uuid.uuid);
 	bt_uuid_to_str(&vnd_enc_uuid.uuid, str, sizeof(str));
-	printk("Indicate VND attr %p (UUID %s)\n", vnd_ind_attr, str);
+	LOG_INF("Indicate VND attr %p (UUID %s)\n", vnd_ind_attr, str);
 
 	/* Implement notification. At the moment there is no suitable way
 	 * of starting delayed work so we do it here
 	 */
 	while (1) {
+    LOG_INF("Bluetooth run %d", i++);
 		k_sleep(K_SECONDS(1));
 
 		/* Current Time Service updates only when time is changed */
-		cts_notify();
+		//cts_notify();
 
 		/* Heartrate measurements simulation */
-		hrs_notify();
+		//hrs_notify();
 
 		/* Battery level simulation */
-		bas_notify();
+		//bas_notify();
 
 		/* Vendor indication simulation */
 		if (simulate_vnd && vnd_ind_attr) {
