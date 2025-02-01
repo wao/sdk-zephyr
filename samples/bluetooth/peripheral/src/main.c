@@ -44,17 +44,20 @@ static const struct bt_uuid_16 vnd_enc_uuid = BT_UUID_INIT_16(0xFEE1);
 
 #define VND_MAX_LEN 20
 
-static uint8_t vnd_value[VND_MAX_LEN + 1] = { 'V', 'e', 'n', 'd', 'o', 'r'};
+static uint8_t vnd_value[1] = {0};
 static uint8_t vnd_auth_value[VND_MAX_LEN + 1] = { 'V', 'e', 'n', 'd', 'o', 'r'};
 static uint8_t vnd_wwr_value[VND_MAX_LEN + 1] = { 'V', 'e', 'n', 'd', 'o', 'r' };
+
 
 static ssize_t read_vnd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			void *buf, uint16_t len, uint16_t offset)
 {
 	const char *value = attr->user_data;
 
+  LOG_INF("read_vnd");
+
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, value,
-				 strlen(value));
+				 1);
 }
 
 static ssize_t write_vnd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -62,6 +65,7 @@ static ssize_t write_vnd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			 uint8_t flags)
 {
 	uint8_t *value = attr->user_data;
+  LOG_INF("write_vnd");
 
 	if (offset + len > VND_MAX_LEN) {
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
@@ -191,12 +195,14 @@ static ssize_t write_without_rsp_vnd(struct bt_conn *conn,
 BT_GATT_SERVICE_DEFINE(vnd_svc,
 	BT_GATT_PRIMARY_SERVICE(&vnd_uuid),
 	BT_GATT_CHARACTERISTIC(&vnd_enc_uuid.uuid,
-			       BT_GATT_CHRC_READ |
+			       BT_GATT_CHRC_READ | 
+			       BT_GATT_CHRC_WRITE | 
 			       BT_GATT_CHRC_NOTIFY,
-			       BT_GATT_PERM_READ,
+			       BT_GATT_PERM_READ |
+			       BT_GATT_PERM_WRITE,
 			       read_vnd, write_vnd, vnd_value),
 	BT_GATT_CCC(vnd_ccc_cfg_changed,
-		    BT_GATT_PERM_READ),
+		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
 static const struct bt_data ad[] = {
@@ -373,22 +379,9 @@ int main(void)
 		/* Battery level simulation */
 		//bas_notify();
 
-		/* Vendor indication simulation */
-		if (simulate_vnd && vnd_ind_attr) {
-			if (indicating) {
-				continue;
-			}
-
-			ind_params.attr = vnd_ind_attr;
-			ind_params.func = indicate_cb;
-			ind_params.destroy = indicate_destroy;
-			ind_params.data = &indicating;
-			ind_params.len = sizeof(indicating);
-
-			if (bt_gatt_indicate(NULL, &ind_params) == 0) {
-				indicating = 1U;
-			}
-		}
+    vnd_value[0]++;
+    bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
+    
 	}
 	return 0;
 }
