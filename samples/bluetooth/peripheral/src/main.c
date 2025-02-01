@@ -24,6 +24,7 @@
 //#include <zephyr/bluetooth/services/bas.h>
 //#include <zephyr/bluetooth/services/hrs.h>
 #include <zephyr/bluetooth/services/ias.h>
+#include <zephyr/drivers/gpio.h>
 
 #include "cts.h"
 
@@ -31,9 +32,6 @@
 LOG_MODULE_REGISTER(blekey, LOG_LEVEL_DBG);
 
 /* Custom Service Variables */
-//#define BT_UUID_CUSTOM_SERVICE_VAL \
-//	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
-
 #define BT_UUID_CUSTOM_SERVICE_VAL 0xFFE0
 
 //static const struct bt_uuid_128 vnd_uuid = BT_UUID_INIT_128(
@@ -337,11 +335,26 @@ static void hrs_notify(void)
 }
 #endif
 
+static struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_NODELABEL(led0), gpios);
+
+static void config_led(void)
+{
+  	int ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT);
+		if (ret != 0) {
+			LOG_ERR("Error %d: failed to configure LED device %s pin %d\n",
+			       ret, led.port->name, led.pin);
+		}
+}
+
 int main(void)
 {
 	struct bt_gatt_attr *vnd_ind_attr;
 	char str[BT_UUID_STR_LEN];
 	int err;
+
+  config_led();
+
+  gpio_pin_set_dt(&led, 1);
 
   int i = 0;
   LOG_INF("Bluetooth init %d", i++);
@@ -381,7 +394,7 @@ int main(void)
 
     vnd_value[0]++;
     bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
-    
+    gpio_pin_set_dt(&led, i%2);
 	}
 	return 0;
 }
