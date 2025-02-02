@@ -31,6 +31,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(blekey, LOG_LEVEL_DBG);
 
+static struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_NODELABEL(led0), gpios);
+
 /* Custom Service Variables */
 #define BT_UUID_CUSTOM_SERVICE_VAL 0xFFE0
 
@@ -38,7 +40,7 @@ LOG_MODULE_REGISTER(blekey, LOG_LEVEL_DBG);
 //	BT_UUID_CUSTOM_SERVICE_VAL);
 static const struct bt_uuid_16 vnd_uuid = BT_UUID_INIT_16(BT_UUID_CUSTOM_SERVICE_VAL);
 
-static const struct bt_uuid_16 vnd_enc_uuid = BT_UUID_INIT_16(0xFEE1);
+static const struct bt_uuid_16 vnd_enc_uuid = BT_UUID_INIT_16(0xFFE1);
 
 #define VND_MAX_LEN 1
 
@@ -72,13 +74,9 @@ static ssize_t write_vnd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 	return len;
 }
 
-static uint8_t simulate_vnd;
-static uint8_t indicating;
-static struct bt_gatt_indicate_params ind_params;
-
 static void vnd_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
-	simulate_vnd = (value == BT_GATT_CCC_INDICATE) ? 1 : 0;
+  LOG_INF("ccc changed %d", value);
 }
 
 /* Vendor Primary Service Declaration */
@@ -114,17 +112,23 @@ static struct bt_gatt_cb gatt_callbacks = {
 	.att_mtu_updated = mtu_updated
 };
 
+static uint8_t gatt_connected = 1;
+
 static void connected(struct bt_conn *conn, uint8_t err)
 {
 	if (err) {
 		LOG_INF("Connection failed (err 0x%02x)\n", err);
 	} else {
+    gatt_connected = 0;
+    gpio_pin_set_dt(&led, gatt_connected);
 		LOG_INF("Connected\n");
 	}
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
+  gatt_connected = 1;
+  gpio_pin_set_dt(&led, gatt_connected);
 	LOG_INF("Disconnected (reason 0x%02x)\n", reason);
 }
 
@@ -227,7 +231,6 @@ static void hrs_notify(void)
 }
 #endif
 
-static struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_NODELABEL(led0), gpios);
 
 static void config_led(void)
 {
@@ -281,7 +284,7 @@ int main(void)
   config_led();
   config_key1();
 
-  gpio_pin_set_dt(&led, 1);
+  gpio_pin_set_dt(&led, gatt_connected);
 
   int i = 0;
   LOG_INF("Bluetooth init %d", i++);
@@ -308,7 +311,6 @@ int main(void)
 	 */
 	while (1) {
     k_sem_take(&key1_sem, K_FOREVER);
-    LOG_INF("Bluetooth run %d", i++);
 
 		/* Current Time Service updates only when time is changed */
 		//cts_notify();
@@ -320,8 +322,9 @@ int main(void)
 		//bas_notify();
 
     vnd_value[0] = gpio_pin_get_dt(&key1);
+    LOG_INF("Bluetooth run %d %d", i++, vnd_value[0]);
     bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
-    gpio_pin_set_dt(&led, vnd_value[0]);
+    gpio_pin_set_dt(&led, vnd_value[0] );
 	}
 	return 0;
 }
