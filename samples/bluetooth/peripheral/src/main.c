@@ -41,10 +41,12 @@ static struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_NODELABEL(led0), gpios);
 static const struct bt_uuid_16 vnd_uuid = BT_UUID_INIT_16(BT_UUID_CUSTOM_SERVICE_VAL);
 
 static const struct bt_uuid_16 vnd_enc_uuid = BT_UUID_INIT_16(0xFFE1);
+static const struct bt_uuid_16 vnd_enc2_uuid = BT_UUID_INIT_16(0xFFE3);
 
 #define VND_MAX_LEN 1
 
 static uint8_t vnd_value[1] = {0};
+static uint8_t vnd2_value[1] = {0};
 
 static ssize_t read_vnd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			void *buf, uint16_t len, uint16_t offset)
@@ -79,17 +81,33 @@ static void vnd_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
   LOG_INF("ccc changed %d", value);
 }
 
+static void vnd2_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+  LOG_INF("ccc2 changed %d", value);
+}
+
 /* Vendor Primary Service Declaration */
 BT_GATT_SERVICE_DEFINE(vnd_svc,
 	BT_GATT_PRIMARY_SERVICE(&vnd_uuid),
 	BT_GATT_CHARACTERISTIC(&vnd_enc_uuid.uuid,
 			       BT_GATT_CHRC_READ | 
-			       BT_GATT_CHRC_WRITE | 
+			       //BT_GATT_CHRC_WRITE | 
 			       BT_GATT_CHRC_NOTIFY,
-			       BT_GATT_PERM_READ |
-			       BT_GATT_PERM_WRITE,
+			       BT_GATT_PERM_READ,
+             //|
+			       //BT_GATT_PERM_WRITE,
 			       read_vnd, write_vnd, vnd_value),
 	BT_GATT_CCC(vnd_ccc_cfg_changed,
+		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+	BT_GATT_CHARACTERISTIC(&vnd_enc2_uuid.uuid,
+			       BT_GATT_CHRC_READ | 
+			       //BT_GATT_CHRC_WRITE | 
+			       BT_GATT_CHRC_NOTIFY,
+			       BT_GATT_PERM_READ,
+             //|
+			       //BT_GATT_PERM_WRITE,
+			       read_vnd, write_vnd, vnd2_value),
+	BT_GATT_CCC(vnd2_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -241,10 +259,22 @@ static void config_led(void)
 		}
 }
 
-static struct gpio_dt_spec key1 = GPIO_DT_SPEC_GET(DT_NODELABEL(key1), gpios);
-static struct gpio_callback key1_cb_data;
+typedef struct _gpio_key_control {
+  struct gpio_dt_spec key;
+  struct gpio_callback cb;
+} gpio_key_control;
 
-K_SEM_DEFINE(key1_sem, 1, 1);
+gpio_key_control key1 =  { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(key1), gpios) };
+
+gpio_key_control sw_keys[] = {
+  { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(sw1), gpios) },
+  { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(sw2), gpios) },
+  { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(sw3), gpios) },
+};
+
+const struct gpio_dt_spec sw_output_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), sw_output_gpios);
+
+K_SEM_DEFINE(key1_sem, 1, 4);
 
 void key1_pressed(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
@@ -253,26 +283,72 @@ void key1_pressed(const struct device *dev, struct gpio_callback *cb,
   k_sem_give(&key1_sem);
 }
 
-void config_key1(void)
+
+void config_key_control(gpio_key_control * key)
 {
-  int ret = gpio_pin_configure_dt(&key1, GPIO_INPUT);
+  int ret = gpio_pin_configure_dt(&key->key, GPIO_INPUT);
 	if (ret != 0) {
 		LOG_ERR("Error %d: failed to configure %s pin %d\n",
-		       ret, key1.port->name, key1.pin);
+		       ret, key->key.port->name, key->key.pin);
     return;
 	}
 
-  ret = gpio_pin_interrupt_configure_dt(&key1,
+  ret = gpio_pin_interrupt_configure_dt(&key->key,
 					      GPIO_INT_EDGE_BOTH);
 	if (ret != 0) {
 		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
-			ret, key1.port->name, key1.pin);
+			ret, key->key.port->name, key->key.pin);
     return;
 	}
 
-	gpio_init_callback(&key1_cb_data, key1_pressed, BIT(key1.pin));
-	gpio_add_callback(key1.port, &key1_cb_data);
-	LOG_INF("Set up button at %s pin %d\n", key1.port->name, key1.pin);
+	gpio_init_callback(&key->cb, key1_pressed, BIT(key->key.pin));
+	gpio_add_callback(key->key.port, &key->cb);
+	LOG_INF("Set up button at %s pin %d\n", key->key.port->name, key->key.pin);
+}
+
+void config_sw_keys(void){
+  int ret = gpio_pin_configure_dt(&sw_output_gpio, GPIO_OUTPUT);
+	if (ret != 0) {
+		LOG_ERR("Error %d: failed to configure %s pin %d\n",
+		       ret, sw_output_gpio.port->name, sw_output_gpio.pin);
+    return;
+	}
+
+  gpio_pin_set_dt(&sw_output_gpio, 1);
+
+  for( int i = 0; i <3; ++i ){
+    config_key_control(&sw_keys[i]);
+  }
+}
+
+static int update_count = 0;
+
+void update_key1_value(uint8_t value) {
+    vnd_value[0] = value;
+    LOG_INF("Bluetooth run %d %d", update_count, vnd_value[0]);
+    bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
+    gpio_pin_set_dt(&led, vnd_value[0] );
+}
+
+void update_sw_value(uint8_t value) {
+    vnd2_value[0] = value;
+    LOG_INF("Bluetooth run %d %d", update_count, vnd2_value[0]);
+    bt_gatt_notify(NULL, &vnd_svc.attrs[5], vnd2_value, 1);
+}
+
+static uint8_t key1_value = 0;
+static uint8_t sw_value[] = { 0, 0, 0 };
+
+uint8_t cacluate_sw_value(void) {
+  return sw_value[0] + 2 * sw_value[1] + 4 * sw_value[2];
+}
+
+uint8_t read_sw_value(void){
+  for( int i = 0; i < 3; ++i ){
+    sw_value[i] = gpio_pin_get_dt(&sw_keys[i].key);
+  }
+
+  return cacluate_sw_value();
 }
 
 int main(void)
@@ -282,7 +358,8 @@ int main(void)
 	int err;
 
   config_led();
-  config_key1();
+  config_key_control(&key1);
+  config_sw_keys();
 
   gpio_pin_set_dt(&led, gatt_connected);
 
@@ -309,8 +386,13 @@ int main(void)
 	/* Implement notification. At the moment there is no suitable way
 	 * of starting delayed work so we do it here
 	 */
+
+  update_key1_value(key1_value);
+  update_sw_value(read_sw_value());
+  
 	while (1) {
     k_sem_take(&key1_sem, K_FOREVER);
+    update_count ++;
 
 		/* Current Time Service updates only when time is changed */
 		//cts_notify();
@@ -321,10 +403,16 @@ int main(void)
 		/* Battery level simulation */
 		//bas_notify();
 
-    vnd_value[0] = gpio_pin_get_dt(&key1);
-    LOG_INF("Bluetooth run %d %d", i++, vnd_value[0]);
-    bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
-    gpio_pin_set_dt(&led, vnd_value[0] );
+    key1_value = gpio_pin_get_dt(&key1.key);
+    if( key1_value != vnd_value[0] ){
+      update_key1_value(key1_value);
+    }
+    {
+      uint8_t sw_value = read_sw_value();
+      if (sw_value != vnd2_value[0]) {
+        update_sw_value(sw_value);
+      }
+    }
 	}
 	return 0;
 }
