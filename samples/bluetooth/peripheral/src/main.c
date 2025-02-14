@@ -270,6 +270,7 @@ gpio_key_control sw_keys[] = {
   { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(sw1), gpios) },
   { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(sw2), gpios) },
   { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(sw3), gpios) },
+  { .key = GPIO_DT_SPEC_GET(DT_NODELABEL(key2), gpios) },
 };
 
 const struct gpio_dt_spec sw_output_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), sw_output_gpios);
@@ -306,6 +307,8 @@ void config_key_control(gpio_key_control * key)
 	LOG_INF("Set up button at %s pin %d\n", key->key.port->name, key->key.pin);
 }
 
+#define SW_KEY_NUM 4
+
 void config_sw_keys(void){
   int ret = gpio_pin_configure_dt(&sw_output_gpio, GPIO_OUTPUT);
 	if (ret != 0) {
@@ -316,12 +319,13 @@ void config_sw_keys(void){
 
   gpio_pin_set_dt(&sw_output_gpio, 1);
 
-  for( int i = 0; i <3; ++i ){
+  for( int i = 0; i < SW_KEY_NUM; ++i ){
     config_key_control(&sw_keys[i]);
   }
 }
 
 static int update_count = 0;
+
 
 void update_key1_value(uint8_t value) {
     vnd_value[0] = value;
@@ -337,14 +341,18 @@ void update_sw_value(uint8_t value) {
 }
 
 static uint8_t key1_value = 0;
-static uint8_t sw_value[] = { 0, 0, 0 };
+static uint8_t sw_value[] = { 0, 0, 0, 0 };
 
 uint8_t cacluate_sw_value(void) {
-  return sw_value[0] + 2 * sw_value[1] + 4 * sw_value[2];
+  uint8_t ret = 0;
+  for(int i = 0; i < SW_KEY_NUM; ++i){
+    ret = 2 * ret + sw_value[SW_KEY_NUM-1-i];
+  }
+  return ret;
 }
 
 uint8_t read_sw_value(void){
-  for( int i = 0; i < 3; ++i ){
+  for( int i = 0; i < SW_KEY_NUM; ++i ){
     sw_value[i] = gpio_pin_get_dt(&sw_keys[i].key);
   }
 
