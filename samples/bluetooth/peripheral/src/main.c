@@ -25,6 +25,7 @@
 //#include <zephyr/bluetooth/services/hrs.h>
 #include <zephyr/bluetooth/services/ias.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/debug/thread_analyzer.h>
 
 #include "cts.h"
 
@@ -215,13 +216,13 @@ static void auth_cancel(struct bt_conn *conn)
 	LOG_INF("Pairing cancelled: %s\n", addr);
 }
 
+#if 0
 static struct bt_conn_auth_cb auth_cb_display = {
 	.passkey_display = auth_passkey_display,
 	.passkey_entry = NULL,
 	.cancel = auth_cancel,
 };
 
-#if 0
 static void bas_notify(void)
 {
 	uint8_t battery_level = bt_bas_get_battery_level();
@@ -359,6 +360,13 @@ uint8_t read_sw_value(void){
   return cacluate_sw_value();
 }
 
+void timer_handler(struct k_timer *dummy)
+{
+  gpio_pin_toggle_dt(&led);
+}
+
+K_TIMER_DEFINE(timer, timer_handler, NULL);
+
 int main(void)
 {
 	struct bt_gatt_attr *vnd_ind_attr;
@@ -370,6 +378,8 @@ int main(void)
   config_sw_keys();
 
   gpio_pin_set_dt(&led, gatt_connected);
+
+  k_timer_start(&timer, K_SECONDS(1), K_SECONDS(1));
 
   int i = 0;
   LOG_INF("Bluetooth init %d", i++);
@@ -421,6 +431,7 @@ int main(void)
         update_sw_value(sw_value);
       }
     }
+    thread_analyzer_print();
 	}
 	return 0;
 }
