@@ -89,16 +89,6 @@ static void vnd2_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value
 /* Vendor Primary Service Declaration */
 BT_GATT_SERVICE_DEFINE(vnd_svc,
 	BT_GATT_PRIMARY_SERVICE(&vnd_uuid),
-	BT_GATT_CHARACTERISTIC(&vnd_enc_uuid.uuid,
-			       BT_GATT_CHRC_READ | 
-			       //BT_GATT_CHRC_WRITE | 
-			       BT_GATT_CHRC_NOTIFY,
-			       BT_GATT_PERM_READ,
-             //|
-			       //BT_GATT_PERM_WRITE,
-			       read_vnd, write_vnd, vnd_value),
-	BT_GATT_CCC(vnd_ccc_cfg_changed,
-		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 	BT_GATT_CHARACTERISTIC(&vnd_enc2_uuid.uuid,
 			       BT_GATT_CHRC_READ | 
 			       //BT_GATT_CHRC_WRITE | 
@@ -108,6 +98,17 @@ BT_GATT_SERVICE_DEFINE(vnd_svc,
 			       //BT_GATT_PERM_WRITE,
 			       read_vnd, write_vnd, vnd2_value),
 	BT_GATT_CCC(vnd2_ccc_cfg_changed,
+		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+  //For a defact in Y6000 code, this character must be in last one in services list
+	BT_GATT_CHARACTERISTIC(&vnd_enc_uuid.uuid,
+			       BT_GATT_CHRC_READ | 
+			       //BT_GATT_CHRC_WRITE | 
+			       BT_GATT_CHRC_NOTIFY,
+			       BT_GATT_PERM_READ,
+             //|
+			       //BT_GATT_PERM_WRITE,
+			       read_vnd, write_vnd, vnd_value),
+	BT_GATT_CCC(vnd_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -343,7 +344,7 @@ static int update_count = 0;
 void update_key1_value(uint8_t value) {
     vnd_value[0] = value;
     LOG_INF("Bluetooth run %d %d", update_count, vnd_value[0]);
-    bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
+    bt_gatt_notify(NULL, &vnd_svc.attrs[5], vnd_value, 1);
     if (value == 0) {
       led_restore();
     } else {
@@ -354,7 +355,7 @@ void update_key1_value(uint8_t value) {
 void update_sw_value(uint8_t value) {
     vnd2_value[0] = value;
     LOG_INF("Bluetooth run %d %d", update_count, vnd2_value[0]);
-    bt_gatt_notify(NULL, &vnd_svc.attrs[5], vnd2_value, 1);
+    bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd2_value, 1);
 }
 
 static uint8_t key1_value = 0;
