@@ -27,6 +27,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/debug/thread_analyzer.h>
 #include "led.h"
+#include "zephyr/bluetooth/hci_types.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(blekey, LOG_LEVEL_DBG);
@@ -129,22 +130,45 @@ static struct bt_gatt_cb gatt_callbacks = {
 	.att_mtu_updated = mtu_updated
 };
 
-static uint8_t gatt_connected = 1;
+
+struct bt_conn_info info;
+static bool s_connected = false;
+static bt_addr_le_t addr = { 0, { 0xfc, 0xdb, 0x20, 0x6a, 0x70, 0x20 }};
+
+static void dump_conn_info(){
+  if(s_connected){
+      char le_addr[BT_ADDR_LE_STR_LEN];
+      bt_addr_le_to_str(info.le.remote, le_addr, sizeof(le_addr));
+      uint8_t * ap = &(info.le.remote->a.val);
+      LOG_INF("Connected to %s 0x%x - 0x%0x%0x%0x%0x%0x%0x\n", le_addr, info.le.remote->type, *ap, *(ap+1), *(ap+2), *(ap+3), *(ap+4), *(ap+5));
+  }
+}
 
 static void connected(struct bt_conn *conn, uint8_t err)
 {
 	if (err) {
 		LOG_INF("Connection failed (err 0x%02x)\n", err);
 	} else {
-    gatt_connected = 0;
     led_set(LED_SLOW_FLASH);
-		LOG_INF("Connected\n");
-	}
+
+    bt_conn_get_info(conn, &info);
+    s_connected = true;
+    dump_conn_info();
+
+    if (!bt_addr_le_eq(&addr, info.le.remote)) {
+      LOG_ERR("Not expected device, reject connection");
+      int ret = bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN );
+      if (ret) {
+        LOG_INF("Disconnecting failed to (err %d)\n", ret);
+        return;
+      }
+    }
+  } 
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
-  gatt_connected = 1;
+  s_connected = false;
   led_set(LED_OFF);
 	LOG_INF("Disconnected (reason 0x%02x)\n", reason);
 }
@@ -186,7 +210,6 @@ static void bt_ready(void)
 	//if (IS_ENABLED(CONFIG_SETTINGS)) {
 //		settings_load();
 	//}
-
 	err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
 	if (err) {
 		LOG_INF("Advertising failed to start (err %d)\n", err);
@@ -265,7 +288,7 @@ gpio_key_control sw_keys[] = {
 
 const struct gpio_dt_spec sw_output_gpio = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), sw_output_gpios);
 
-K_SEM_DEFINE(key1_sem, 1, 4);
+K_SEM_DEFINE(key1_sem, 0, 4);
 
 void key1_pressed(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
@@ -365,6 +388,7 @@ int main(void)
   config_sw_keys();
 
   led_set(LED_OFF);
+  k_sem_take(&key1_sem, K_FOREVER);
 
 	err = bt_enable(NULL);
 	if (err) {
@@ -393,6 +417,7 @@ int main(void)
 	while (1) {
     k_sem_take(&key1_sem, K_FOREVER);
     update_count ++;
+    dump_conn_info();
 
 		/* Current Time Service updates only when time is changed */
 		//cts_notify();
