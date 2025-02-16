@@ -26,13 +26,11 @@
 #include <zephyr/bluetooth/services/ias.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/debug/thread_analyzer.h>
-
-#include "cts.h"
+#include "led.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(blekey, LOG_LEVEL_DBG);
 
-static struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_NODELABEL(led0), gpios);
 
 /* Custom Service Variables */
 #define BT_UUID_CUSTOM_SERVICE_VAL 0xFFE0
@@ -139,7 +137,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
 		LOG_INF("Connection failed (err 0x%02x)\n", err);
 	} else {
     gatt_connected = 0;
-    gpio_pin_set_dt(&led, gatt_connected);
+    led_set(LED_SLOW_FLASH);
 		LOG_INF("Connected\n");
 	}
 }
@@ -147,7 +145,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
   gatt_connected = 1;
-  gpio_pin_set_dt(&led, gatt_connected);
+  led_set(LED_OFF);
 	LOG_INF("Disconnected (reason 0x%02x)\n", reason);
 }
 
@@ -251,15 +249,6 @@ static void hrs_notify(void)
 #endif
 
 
-static void config_led(void)
-{
-  	int ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT);
-		if (ret != 0) {
-			LOG_ERR("Error %d: failed to configure LED device %s pin %d\n",
-			       ret, led.port->name, led.pin);
-		}
-}
-
 typedef struct _gpio_key_control {
   struct gpio_dt_spec key;
   struct gpio_callback cb;
@@ -332,7 +321,11 @@ void update_key1_value(uint8_t value) {
     vnd_value[0] = value;
     LOG_INF("Bluetooth run %d %d", update_count, vnd_value[0]);
     bt_gatt_notify(NULL, &vnd_svc.attrs[1], vnd_value, 1);
-    gpio_pin_set_dt(&led, vnd_value[0] );
+    if (value == 0) {
+      led_restore();
+    } else {
+      led_set(LED_ON);
+    }
 }
 
 void update_sw_value(uint8_t value) {
@@ -360,12 +353,6 @@ uint8_t read_sw_value(void){
   return cacluate_sw_value();
 }
 
-void timer_handler(struct k_timer *dummy)
-{
-  gpio_pin_toggle_dt(&led);
-}
-
-K_TIMER_DEFINE(timer, timer_handler, NULL);
 
 int main(void)
 {
@@ -373,17 +360,11 @@ int main(void)
 	char str[BT_UUID_STR_LEN];
 	int err;
 
-  config_led();
+  led_init();
   config_key_control(&key1);
   config_sw_keys();
 
-  gpio_pin_set_dt(&led, gatt_connected);
-
-  k_timer_start(&timer, K_SECONDS(1), K_SECONDS(1));
-
-  int i = 0;
-  LOG_INF("Bluetooth init %d", i++);
-  k_sleep(K_SECONDS(1));
+  led_set(LED_OFF);
 
 	err = bt_enable(NULL);
 	if (err) {
@@ -407,6 +388,7 @@ int main(void)
 
   update_key1_value(key1_value);
   update_sw_value(read_sw_value());
+  led_set(LED_QUICK_FLASH);
   
 	while (1) {
     k_sem_take(&key1_sem, K_FOREVER);
