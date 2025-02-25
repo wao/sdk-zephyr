@@ -7,4 +7,6 @@ project(peripheral)
 target_sources(app PRIVATE
   src/main.c
   src/led.c
+  src/nvsfs.c
+  src/bat.c
 )

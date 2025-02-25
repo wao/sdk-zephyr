@@ -27,6 +27,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/debug/thread_analyzer.h>
 #include "led.h"
+#include "bat.h"
 #include "zephyr/bluetooth/hci_types.h"
 
 #include <zephyr/logging/log.h>
@@ -156,6 +157,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
     s_connected = true;
     dump_conn_info();
 
+#if 0
     if (!bt_addr_le_eq(&addr, info.le.remote)) {
       LOG_ERR("Not expected device, reject connection");
       int ret = bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN );
@@ -164,6 +166,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
         return;
       }
     }
+#endif
   } 
 }
 
@@ -391,6 +394,8 @@ int main(void)
   led_set(LED_OFF);
   k_sem_take(&key1_sem, K_FOREVER);
 
+  bat_init();
+
 	err = bt_enable(NULL);
 	if (err) {
 		LOG_INF("Bluetooth init failed (err %d)\n", err);
@@ -407,6 +412,8 @@ int main(void)
 	bt_uuid_to_str(&vnd_enc_uuid.uuid, str, sizeof(str));
 	LOG_INF("Indicate VND attr %p (UUID %s)\n", vnd_ind_attr, str);
 
+  bat_read();
+
 	/* Implement notification. At the moment there is no suitable way
 	 * of starting delayed work so we do it here
 	 */
@@ -419,6 +426,7 @@ int main(void)
     k_sem_take(&key1_sem, K_FOREVER);
     update_count ++;
     dump_conn_info();
+    bat_read();
 
 		/* Current Time Service updates only when time is changed */
 		//cts_notify();
