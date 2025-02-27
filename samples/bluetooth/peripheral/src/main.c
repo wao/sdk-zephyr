@@ -21,7 +21,7 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
-//#include <zephyr/bluetooth/services/bas.h>
+#include <zephyr/bluetooth/services/bas.h>
 //#include <zephyr/bluetooth/services/hrs.h>
 #include <zephyr/bluetooth/services/ias.h>
 #include <zephyr/drivers/gpio.h>
@@ -116,6 +116,7 @@ BT_GATT_SERVICE_DEFINE(vnd_svc,
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
+           BT_UUID_16_ENCODE(BT_UUID_BAS_VAL),
 		      BT_UUID_16_ENCODE(BT_UUID_CUSTOM_SERVICE_VAL)),
 };
 
@@ -380,6 +381,35 @@ uint8_t read_sw_value(void){
   return cacluate_sw_value();
 }
 
+enum {
+  P0_MV = 2000,
+  P33_MV = 2600,
+  P100_MV = 2900,
+};
+
+int bat_to_percent(int mv) {
+  if (mv > P100_MV) {
+    return 100;
+  } else {
+    if ( mv > P33_MV ) {
+      return (mv - P33_MV) * 66 / (P100_MV - P33_MV) + 33;
+    } else {
+      if ( mv > P0_MV ){
+        return (mv - P0_MV) * 33 / (P33_MV - P0_MV);
+      } else {
+        return 0;
+      }
+    }
+  }
+}
+
+void bas_notify() {
+  int bat_mv = bat_read();
+  int bat_level = bat_to_percent( bat_mv );
+  LOG_INF("Battery %d mv as %d%", bat_mv, bat_level);
+  bt_bas_set_battery_level( bat_level );
+}
+
 
 int main(void)
 {
@@ -412,7 +442,7 @@ int main(void)
 	bt_uuid_to_str(&vnd_enc_uuid.uuid, str, sizeof(str));
 	LOG_INF("Indicate VND attr %p (UUID %s)\n", vnd_ind_attr, str);
 
-  bat_read();
+  bas_notify();
 
 	/* Implement notification. At the moment there is no suitable way
 	 * of starting delayed work so we do it here
@@ -421,12 +451,13 @@ int main(void)
   update_key1_value(key1_value);
   update_sw_value(read_sw_value());
   led_set(LED_QUICK_FLASH);
+  bas_notify();
   
 	while (1) {
     k_sem_take(&key1_sem, K_FOREVER);
     update_count ++;
     dump_conn_info();
-    bat_read();
+    bas_notify();
 
 		/* Current Time Service updates only when time is changed */
 		//cts_notify();
